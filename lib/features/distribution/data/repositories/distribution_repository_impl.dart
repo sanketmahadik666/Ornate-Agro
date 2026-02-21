@@ -65,6 +65,45 @@ class DistributionRepositoryImpl implements DistributionRepository {
   }
 
   @override
+  Future<DistributionEntity> recordYieldReturn({
+    required String id,
+    required double quantityReturned,
+    required String staffId,
+  }) async {
+    if (quantityReturned <= 0) {
+      throw DistributionException('Quantity returned must be positive');
+    }
+
+    final existing = await _localDataSource.getDistributionById(id);
+    if (existing == null) {
+      throw DistributionNotFoundException(id);
+    }
+
+    final newTotalReturned = existing.quantityReturned + quantityReturned;
+
+    // Status logic: if total returned >= distributed, it's fulfilled.
+    // Else if they returned *some*, it's partially fulfilled.
+    DistributionStatus newStatus;
+    if (newTotalReturned >= existing.quantityDistributed) {
+      newStatus = DistributionStatus.fulfilled;
+    } else {
+      newStatus = DistributionStatus.partiallyFulfilled;
+    }
+
+    final updated = existing.copyWith(
+      quantityReturned: newTotalReturned,
+      status: newStatus,
+      actualReturnDate: DateTime.now(),
+      updatedAt: DateTime.now(),
+      // Assuming recordedByStaffId tracks the *creator*, we might not overwrite it here
+      // unless we want to track the returning staff member. For now we just update the entity.
+    );
+
+    await _localDataSource.updateDistribution(updated);
+    return updated;
+  }
+
+  @override
   Future<List<DistributionEntity>> getFilteredDistributions({
     DateTime? startDate,
     DateTime? endDate,

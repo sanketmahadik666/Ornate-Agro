@@ -25,6 +25,13 @@ abstract class DistributionRepository {
     DateTime? distributionDate,
   });
 
+  /// Record a yield return for this distribution.
+  Future<DistributionEntity> recordYieldReturn({
+    required String id,
+    required double quantityReturned,
+    required String staffId,
+  });
+
   /// Get distributions matching the given filters.
   Future<List<DistributionEntity>> getFilteredDistributions({
     DateTime? startDate,

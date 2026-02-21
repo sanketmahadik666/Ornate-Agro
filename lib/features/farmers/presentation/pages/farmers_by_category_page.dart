@@ -4,8 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:csv/csv.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../../../shared/domain/entities/farmer_entity.dart';
+import '../../../../core/services/classification_service.dart';
 import '../bloc/farmer_bloc.dart';
 
 /// Enhanced interface showing farmers sorted by classification categories with sorting, filtering, bulk actions, and export
@@ -292,6 +294,19 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                 _showDeleteConfirmation(selectedFarmers);
               },
             ),
+            // Move to Blacklist (only visible when on Reminder tab)
+            if (_getCurrentCategory() == FarmerClassification.reminder)
+              ListTile(
+                leading: const Icon(Icons.block, color: Colors.red),
+                title: const Text('Move to Blacklist',
+                    style: TextStyle(color: Colors.red)),
+                subtitle:
+                    const Text('Authority action — mark as non-responsive'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _moveToBlacklist(selectedFarmers);
+                },
+              ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -447,6 +462,92 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
     );
   }
 
+  /// Req 5: Run classification engine on all farmers and reload.
+  Future<void> _reclassifyAll(BuildContext context) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Reclassifying farmers...')),
+    );
+
+    try {
+      final service = context.read<ClassificationService>();
+      final changedCount = await service.evaluateAllFarmers();
+
+      if (mounted) {
+        context.read<FarmerBloc>().add(const FarmerLoadRequested());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(changedCount > 0
+                ? '$changedCount farmer(s) reclassified'
+                : 'All farmers already correctly classified'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Reclassification failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Req 5: Authority action — move selected Reminder farmers to Blacklist.
+  void _moveToBlacklist(List<FarmerEntity> farmers) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Move to Blacklist?'),
+        content: Text(
+          'This will mark ${farmers.length} farmer(s) as Blacklisted.\n\n'
+          'This is an authority action and should only be used for '
+          'farmers who have not responded after the final reminder.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Update each farmer's classification to blacklist
+              for (final farmer in farmers) {
+                context.read<FarmerBloc>().add(FarmerUpdateRequested(
+                      FarmerEntity(
+                        id: farmer.id,
+                        fullName: farmer.fullName,
+                        contactNumber: farmer.contactNumber,
+                        village: farmer.village,
+                        plotCount: farmer.plotCount,
+                        areaPerPlot: farmer.areaPerPlot,
+                        assignedCropTypeId: farmer.assignedCropTypeId,
+                        classification: FarmerClassification.blacklist,
+                        lastContactAt: farmer.lastContactAt,
+                        createdAt: farmer.createdAt,
+                        updatedAt: DateTime.now(),
+                      ),
+                    ));
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content:
+                      Text('${farmers.length} farmer(s) moved to Blacklist'),
+                ),
+              );
+              _deselectAll();
+              context.read<FarmerBloc>().add(const FarmerLoadRequested());
+            },
+            child: const Text('Move to Blacklist'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _selectDateRange() async {
     final picked = await showDateRangePicker(
       context: context,
@@ -539,6 +640,12 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                     const PopupMenuItem(
                         value: 'reminder', child: Text('Export Reminder')),
                   ],
+                ),
+                // Reclassify All button (Req 5)
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Reclassify All Farmers',
+                  onPressed: () => _reclassifyAll(context),
                 ),
               ],
             ],

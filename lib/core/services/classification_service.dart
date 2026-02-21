@@ -51,12 +51,6 @@ class ClassificationService {
       (d) => d.status == DistributionStatus.fulfilled,
     );
 
-    final hasAnyYieldReturn = distributions.any(
-      (d) =>
-          d.status == DistributionStatus.fulfilled ||
-          d.status == DistributionStatus.partiallyFulfilled,
-    );
-
     // Check contact status
     final bool isInContact = _isInContact(farmer, now);
 
