@@ -14,6 +14,7 @@ class DistributionBloc extends Bloc<DistributionEvent, DistributionState> {
     on<DistributionAmendRequested>(_onAmendRequested);
     on<DistributionFilterRequested>(_onFilterRequested);
     on<DistributionLoadByFarmerRequested>(_onLoadByFarmerRequested);
+    on<DistributionYieldReturnRequested>(_onYieldReturnRequested);
   }
 
   final DistributionRepository _repository;
@@ -99,6 +100,27 @@ class DistributionBloc extends Bloc<DistributionEvent, DistributionState> {
       emit(DistributionState.loaded(distributions));
     } catch (e) {
       emit(DistributionState.failure('Failed to load distributions: $e'));
+    }
+  }
+
+  Future<void> _onYieldReturnRequested(
+    DistributionYieldReturnRequested event,
+    Emitter<DistributionState> emit,
+  ) async {
+    emit(const DistributionState.loading());
+    try {
+      await _repository.recordYieldReturn(
+        id: event.id,
+        quantityReturned: event.quantityReturned,
+        staffId: event.staffId,
+      );
+      emit(const DistributionState.success('Yield return recorded'));
+      // Reload distributions after recording
+      add(const DistributionLoadRequested());
+    } on DistributionNotFoundException {
+      emit(const DistributionState.failure('Distribution not found'));
+    } catch (e) {
+      emit(DistributionState.failure('Failed to record yield return: $e'));
     }
   }
 }

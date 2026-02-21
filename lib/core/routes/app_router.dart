@@ -44,7 +44,9 @@ abstract final class AppRouter {
       case yieldTracking:
         return MaterialPageRoute(builder: (_) => const YieldTrackingPage());
       case contactLog:
-        return MaterialPageRoute(builder: (_) => const ContactLogPage());
+        final farmerId = settings.arguments as String?;
+        return MaterialPageRoute(
+            builder: (_) => ContactLogPage(farmerId: farmerId));
       case cropConfig:
         return MaterialPageRoute(builder: (_) => const CropConfigPage());
       case reports:

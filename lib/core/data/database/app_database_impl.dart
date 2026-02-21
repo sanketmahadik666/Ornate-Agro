@@ -7,7 +7,7 @@ import 'database_factory.dart'
 /// SQLite database implementation
 class AppDatabaseImpl implements AppDatabase {
   static const String _databaseName = 'ornate_agro.db';
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
 
   Database? _database;
 
@@ -57,6 +57,9 @@ class AppDatabaseImpl implements AppDatabase {
 
     // Crop types table (Req 8)
     await _createCropTypesTable(db);
+
+    // Contact logs table (Req 6)
+    await _createContactLogsTable(db);
   }
 
   /// Create the distributions table (shared between onCreate and onUpgrade).
@@ -100,12 +103,33 @@ class AppDatabaseImpl implements AppDatabase {
     ''');
   }
 
+  /// Create the contact_logs table (shared between onCreate and onUpgrade).
+  Future<void> _createContactLogsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS contact_logs (
+        id TEXT PRIMARY KEY,
+        farmer_id TEXT NOT NULL,
+        contact_date INTEGER NOT NULL,
+        contact_method TEXT NOT NULL,
+        notes TEXT NOT NULL,
+        recorded_by_staff_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (farmer_id) REFERENCES farmers(id)
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_contact_logs_farmer ON contact_logs(farmer_id)');
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _createDistributionsTable(db);
     }
     if (oldVersion < 3) {
       await _createCropTypesTable(db);
+    }
+    if (oldVersion < 4) {
+      await _createContactLogsTable(db);
     }
   }
 

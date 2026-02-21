@@ -30,6 +30,43 @@ class FarmerEntity extends Equatable {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  FarmerEntity copyWith({
+    String? id,
+    String? fullName,
+    String? contactNumber,
+    String? village,
+    int? plotCount,
+    double? areaPerPlot,
+    String? assignedCropTypeId,
+    FarmerClassification? classification,
+    DateTime? lastContactAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return FarmerEntity(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      contactNumber: contactNumber ?? this.contactNumber,
+      village: village ?? this.village,
+      plotCount: plotCount ?? this.plotCount,
+      areaPerPlot: areaPerPlot ?? this.areaPerPlot,
+      assignedCropTypeId: assignedCropTypeId ?? this.assignedCropTypeId,
+      classification: classification ?? this.classification,
+      lastContactAt: lastContactAt ?? this.lastContactAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   @override
-  List<Object?> get props => [id, fullName, contactNumber, village, plotCount, areaPerPlot, assignedCropTypeId, classification];
+  List<Object?> get props => [
+        id,
+        fullName,
+        contactNumber,
+        village,
+        plotCount,
+        areaPerPlot,
+        assignedCropTypeId,
+        classification
+      ];
 }

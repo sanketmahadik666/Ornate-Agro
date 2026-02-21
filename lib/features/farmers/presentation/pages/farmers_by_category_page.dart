@@ -6,9 +6,12 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'package:uuid/uuid.dart';
 import '../../../../shared/domain/entities/farmer_entity.dart';
+import '../../../../shared/domain/entities/contact_log_entity.dart';
 import '../../../../core/services/classification_service.dart';
 import '../bloc/farmer_bloc.dart';
+import '../../../contact_log/presentation/bloc/contact_log_bloc.dart';
 
 /// Enhanced interface showing farmers sorted by classification categories with sorting, filtering, bulk actions, and export
 class FarmersByCategoryPage extends StatefulWidget {
@@ -371,13 +374,78 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
   }
 
   void _showContactLogDialog(List<FarmerEntity> farmers) {
-    // TODO: Implement contact log dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(
-              'Contact log for ${farmers.length} farmers (to be implemented)')),
+    final notesController = TextEditingController();
+    String method = 'call';
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Log Contact (${farmers.length} farmers)'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: method,
+                decoration: const InputDecoration(labelText: 'Method'),
+                items: const [
+                  DropdownMenuItem(value: 'call', child: Text('Call')),
+                  DropdownMenuItem(value: 'visit', child: Text('Visit')),
+                  DropdownMenuItem(value: 'message', child: Text('Message')),
+                ],
+                onChanged: (v) => method = v!,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  helperText: 'Will be attached to all selected farmers',
+                ),
+                maxLines: 3,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Required' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              for (final farmer in farmers) {
+                final log = ContactLogEntity(
+                  id: const Uuid().v4(),
+                  farmerId: farmer.id,
+                  contactDate: DateTime.now(),
+                  contactMethod: method,
+                  notes: notesController.text.trim(),
+                  recordedByStaffId: 'STAFF_001',
+                );
+                context
+                    .read<ContactLogBloc>()
+                    .add(ContactLogCreateRequested(log));
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content:
+                        Text('Contact logged for ${farmers.length} farmers')),
+              );
+              Navigator.pop(ctx);
+              _deselectAll();
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
-    _deselectAll();
   }
 
   Future<void> _exportSelectedFarmers(List<FarmerEntity> farmers) async {

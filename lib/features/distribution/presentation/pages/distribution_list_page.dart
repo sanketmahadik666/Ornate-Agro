@@ -382,6 +382,20 @@ class _DistributionCard extends StatelessWidget {
               if (distribution.amendedByAuthorityId != null)
                 _detailRow('Amended By', distribution.amendedByAuthorityId!),
               const SizedBox(height: 24),
+              if (distribution.status != DistributionStatus.fulfilled) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showYieldReturnDialog(context);
+                    },
+                    icon: const Icon(Icons.download),
+                    label: const Text('Record Yield Return'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Text(
                 'Note: Distribution entries cannot be deleted. Only amendments with authority approval are permitted.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -392,6 +406,67 @@ class _DistributionCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showYieldReturnDialog(BuildContext context) {
+    final qtyController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Record Yield Return'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Farmer: $farmerName'),
+              Text('Outstanding: ${distribution.outstandingQuantity}'),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: qtyController,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity Returned',
+                  hintText: 'e.g. 50',
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  final n = double.tryParse(v.trim());
+                  if (n == null || n <= 0)
+                    return 'Enter a valid positive number';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              final qty = double.parse(qtyController.text.trim());
+              context.read<DistributionBloc>().add(
+                    DistributionYieldReturnRequested(
+                      id: distribution.id,
+                      quantityReturned: qty,
+                      staffId: 'STAFF_001', // Ideally from Auth context
+                    ),
+                  );
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save Return'),
+          ),
+        ],
       ),
     );
   }

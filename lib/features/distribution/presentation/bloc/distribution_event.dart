@@ -72,3 +72,18 @@ final class DistributionLoadByFarmerRequested extends DistributionEvent {
   @override
   List<Object?> get props => [farmerId];
 }
+
+final class DistributionYieldReturnRequested extends DistributionEvent {
+  const DistributionYieldReturnRequested({
+    required this.id,
+    required this.quantityReturned,
+    required this.staffId,
+  });
+
+  final String id;
+  final double quantityReturned;
+  final String staffId;
+
+  @override
+  List<Object?> get props => [id, quantityReturned, staffId];
+}

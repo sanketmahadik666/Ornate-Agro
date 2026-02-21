@@ -18,6 +18,9 @@ import 'package:ornate_agro/features/distribution/data/repositories/distribution
 import 'package:ornate_agro/features/crop_config/presentation/bloc/crop_type_bloc.dart';
 import 'package:ornate_agro/features/crop_config/data/datasources/crop_type_local_datasource.dart';
 import 'package:ornate_agro/features/crop_config/data/repositories/crop_type_repository_impl.dart';
+import 'package:ornate_agro/features/contact_log/presentation/bloc/contact_log_bloc.dart';
+import 'package:ornate_agro/features/contact_log/data/datasources/contact_log_local_datasource.dart';
+import 'package:ornate_agro/features/contact_log/data/repositories/contact_log_repository_impl.dart';
 import 'package:ornate_agro/core/services/classification_service.dart';
 import 'package:provider/provider.dart';
 
@@ -60,6 +63,15 @@ class OrnateAgroApp extends StatelessWidget {
       farmerDataSource: farmerLocalDataSource,
     );
 
+    // Contact log dependencies (Req 6)
+    final contactLogLocalDataSource = ContactLogLocalDataSource(database);
+    final contactLogRepository = ContactLogRepositoryImpl(
+      contactLogLocalDataSource,
+      farmerRepository,
+      classificationService,
+    );
+    final contactLogBloc = ContactLogBloc(contactLogRepository);
+
     return MultiProvider(
       providers: [
         Provider<ClassificationService>.value(value: classificationService),
@@ -70,6 +82,7 @@ class OrnateAgroApp extends StatelessWidget {
           BlocProvider<FarmerBloc>.value(value: farmerBloc),
           BlocProvider<DistributionBloc>.value(value: distributionBloc),
           BlocProvider<CropTypeBloc>.value(value: cropTypeBloc),
+          BlocProvider<ContactLogBloc>.value(value: contactLogBloc),
         ],
         child: SessionManagerWidget(
           child: MaterialApp(
