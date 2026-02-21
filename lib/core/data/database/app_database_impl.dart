@@ -7,7 +7,7 @@ import 'database_factory.dart'
 /// SQLite database implementation
 class AppDatabaseImpl implements AppDatabase {
   static const String _databaseName = 'ornate_agro.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   Database? _database;
 
@@ -45,19 +45,49 @@ class AppDatabaseImpl implements AppDatabase {
       )
     ''');
 
-    // Create indexes
+    // Farmer indexes
     await db.execute('CREATE INDEX idx_farmers_village ON farmers(village)');
     await db.execute(
         'CREATE INDEX idx_farmers_classification ON farmers(classification)');
     await db.execute(
         'CREATE INDEX idx_farmers_contact_number ON farmers(contact_number)');
+
+    // Distributions table (Req 3)
+    await _createDistributionsTable(db);
+  }
+
+  /// Create the distributions table (shared between onCreate and onUpgrade).
+  Future<void> _createDistributionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS distributions (
+        id TEXT PRIMARY KEY,
+        farmer_id TEXT NOT NULL,
+        seed_type TEXT NOT NULL,
+        quantity_distributed REAL NOT NULL,
+        distribution_date INTEGER NOT NULL,
+        expected_yield_due_date INTEGER NOT NULL,
+        recorded_by_staff_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        quantity_returned REAL NOT NULL DEFAULT 0,
+        actual_return_date INTEGER,
+        amendment_reason TEXT,
+        amended_by_authority_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        FOREIGN KEY (farmer_id) REFERENCES farmers(id)
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_distributions_farmer ON distributions(farmer_id)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_distributions_status ON distributions(status)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_distributions_date ON distributions(distribution_date)');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle database migrations here
     if (oldVersion < 2) {
-      // Example: Add new column
-      // await db.execute('ALTER TABLE farmers ADD COLUMN new_field TEXT');
+      await _createDistributionsTable(db);
     }
   }
 
