@@ -5,6 +5,7 @@ import '../../features/contact_log/presentation/pages/contact_log_page.dart';
 import '../../features/crop_config/presentation/pages/crop_config_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/distribution/presentation/pages/distribution_list_page.dart';
+import '../../features/distribution/presentation/pages/distribution_form_page.dart';
 import '../../features/farmers/presentation/pages/farmers_list_page.dart';
 import '../../features/farmers/presentation/pages/farmers_by_category_page.dart';
 import '../../features/farmers/presentation/pages/farmer_form_page.dart';
@@ -18,6 +19,7 @@ abstract final class AppRouter {
   static const String farmers = '/farmers';
   static const String farmersByCategory = '/farmers/categories';
   static const String distribution = '/distribution';
+  static const String distributionNew = '/distribution/new';
   static const String yieldTracking = '/yield';
   static const String contactLog = '/contact-log';
   static const String cropConfig = '/crop-config';
@@ -37,6 +39,8 @@ abstract final class AppRouter {
         return MaterialPageRoute(builder: (_) => const FarmersByCategoryPage());
       case distribution:
         return MaterialPageRoute(builder: (_) => const DistributionListPage());
+      case distributionNew:
+        return MaterialPageRoute(builder: (_) => const DistributionFormPage());
       case yieldTracking:
         return MaterialPageRoute(builder: (_) => const YieldTrackingPage());
       case contactLog:

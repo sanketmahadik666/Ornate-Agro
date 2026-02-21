@@ -12,6 +12,9 @@ import 'package:ornate_agro/features/auth/presentation/widgets/session_manager.d
 import 'package:ornate_agro/features/farmers/presentation/bloc/farmer_bloc.dart';
 import 'package:ornate_agro/features/farmers/data/datasources/farmer_local_datasource.dart';
 import 'package:ornate_agro/features/farmers/data/repositories/farmer_repository_impl.dart';
+import 'package:ornate_agro/features/distribution/presentation/bloc/distribution_bloc.dart';
+import 'package:ornate_agro/features/distribution/data/datasources/distribution_local_datasource.dart';
+import 'package:ornate_agro/features/distribution/data/repositories/distribution_repository_impl.dart';
 
 class OrnateAgroApp extends StatelessWidget {
   const OrnateAgroApp({required this.database, super.key});
@@ -35,10 +38,17 @@ class OrnateAgroApp extends StatelessWidget {
     final farmerRepository = FarmerRepositoryImpl(farmerLocalDataSource);
     final farmerBloc = FarmerBloc(farmerRepository);
 
+    // Distribution dependencies (Req 3)
+    final distributionLocalDataSource = DistributionLocalDataSource(database);
+    final distributionRepository =
+        DistributionRepositoryImpl(distributionLocalDataSource);
+    final distributionBloc = DistributionBloc(distributionRepository);
+
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: authBloc),
         BlocProvider<FarmerBloc>.value(value: farmerBloc),
+        BlocProvider<DistributionBloc>.value(value: distributionBloc),
       ],
       child: SessionManagerWidget(
         child: MaterialApp(
