@@ -1,19 +1,23 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'app_database.dart';
+import 'database_factory.dart'
+    if (dart.library.html) 'database_factory_web.dart';
 
 /// SQLite database implementation
 class AppDatabaseImpl implements AppDatabase {
   static const String _databaseName = 'ornate_agro.db';
   static const int _databaseVersion = 1;
-  
+
   Database? _database;
 
   @override
   Future<void> init() async {
+    databaseFactory = getFactory();
+
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, _databaseName);
-    
+
     _database = await openDatabase(
       path,
       version: _databaseVersion,
@@ -43,8 +47,10 @@ class AppDatabaseImpl implements AppDatabase {
 
     // Create indexes
     await db.execute('CREATE INDEX idx_farmers_village ON farmers(village)');
-    await db.execute('CREATE INDEX idx_farmers_classification ON farmers(classification)');
-    await db.execute('CREATE INDEX idx_farmers_contact_number ON farmers(contact_number)');
+    await db.execute(
+        'CREATE INDEX idx_farmers_classification ON farmers(classification)');
+    await db.execute(
+        'CREATE INDEX idx_farmers_contact_number ON farmers(contact_number)');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {

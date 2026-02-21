@@ -67,7 +67,10 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 16),
                       Text(
                         'Ornate Agro',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
@@ -102,15 +105,18 @@ class _LoginPageState extends State<LoginPage> {
                           prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                              _obscurePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
                             ),
                             onPressed: () {
-                              setState(() => _obscurePassword = !_obscurePassword);
+                              setState(
+                                  () => _obscurePassword = !_obscurePassword);
                             },
                           ),
                         ),
                         obscureText: _obscurePassword,
-                        onSubmitted: (_) => _handleLogin(),
+                        onFieldSubmitted: (_) => _handleLogin(),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Password is required';
@@ -123,17 +129,20 @@ class _LoginPageState extends State<LoginPage> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Demo: authority/authority123 or staff/staff123',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey.shade500,
-                                fontStyle: FontStyle.italic,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey.shade500,
+                                    fontStyle: FontStyle.italic,
+                                  ),
                         ),
                       ),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: state.status == AuthStatus.loading ? null : _handleLogin,
+                          onPressed: state.status == AuthStatus.loading
+                              ? null
+                              : _handleLogin,
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
@@ -141,9 +150,11 @@ class _LoginPageState extends State<LoginPage> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Text('Log in', style: TextStyle(fontSize: 16)),
+                              : const Text('Log in',
+                                  style: TextStyle(fontSize: 16)),
                         ),
                       ),
                     ],

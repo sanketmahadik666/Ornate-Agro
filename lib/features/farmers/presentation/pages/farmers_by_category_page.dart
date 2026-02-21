@@ -69,8 +69,7 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
     context.read<FarmerBloc>().add(const FarmerLoadRequested());
   }
 
-  List<FarmerEntity> _getFilteredAndSortedFarmers(
-      FarmerClassification category,
+  List<FarmerEntity> _getFilteredAndSortedFarmers(FarmerClassification category,
       Map<FarmerClassification, List<FarmerEntity>> farmersByCategory) {
     var farmers = List<FarmerEntity>.from(farmersByCategory[category] ?? []);
 
@@ -230,9 +229,10 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
 
   void _showBulkActionsDialog(FarmerClassification category,
       Map<FarmerClassification, List<FarmerEntity>> farmersByCategory) {
-    final selectedFarmers = _getFilteredAndSortedFarmers(category, farmersByCategory)
-        .where((f) => _selectedFarmerIds.contains(f.id))
-        .toList();
+    final selectedFarmers =
+        _getFilteredAndSortedFarmers(category, farmersByCategory)
+            .where((f) => _selectedFarmerIds.contains(f.id))
+            .toList();
 
     if (selectedFarmers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -436,7 +436,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                 SnackBar(content: Text('Deleted ${farmers.length} farmers')),
               );
               _deselectAll();
-              _loadFarmers(); // Reload to reflect changes
+              context.read<FarmerBloc>().add(
+                  const FarmerLoadRequested()); // Reload to reflect changes
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
@@ -483,13 +484,15 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                     label: Text('${_selectedFarmerIds.length}'),
                     child: const Icon(Icons.checklist),
                   ),
-                  onPressed: () => _showBulkActionsDialog(_getCurrentCategory(), farmersByCategory),
+                  onPressed: () => _showBulkActionsDialog(
+                      _getCurrentCategory(), farmersByCategory),
                   tooltip: 'Bulk Actions',
                 ),
               ] else ...[
                 IconButton(
-                  icon: Icon(
-                      _showFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
+                  icon: Icon(_showFilters
+                      ? Icons.filter_alt
+                      : Icons.filter_alt_outlined),
                   onPressed: () => setState(() => _showFilters = !_showFilters),
                   tooltip: 'Toggle Filters',
                 ),
@@ -510,7 +513,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                     const PopupMenuItem(
                         value: 'dateAsc', child: Text('Last Contact (Oldest)')),
                     const PopupMenuItem(
-                        value: 'dateDesc', child: Text('Last Contact (Newest)')),
+                        value: 'dateDesc',
+                        child: Text('Last Contact (Newest)')),
                     const PopupMenuItem(
                         value: 'villageAsc', child: Text('Village (A-Z)')),
                     const PopupMenuItem(
@@ -547,7 +551,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                   count: _getFilteredAndSortedFarmers(
                           FarmerClassification.regular, farmersByCategory)
                       .length,
-                  total: farmersByCategory[FarmerClassification.regular]?.length ?? 0,
+                  total:
+                      farmersByCategory[FarmerClassification.regular]?.length ??
+                          0,
                   color: Colors.green,
                 ),
                 _CategoryTab(
@@ -555,7 +561,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                   count: _getFilteredAndSortedFarmers(
                           FarmerClassification.sleepy, farmersByCategory)
                       .length,
-                  total: farmersByCategory[FarmerClassification.sleepy]?.length ?? 0,
+                  total:
+                      farmersByCategory[FarmerClassification.sleepy]?.length ??
+                          0,
                   color: Colors.orange,
                 ),
                 _CategoryTab(
@@ -563,7 +571,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                   count: _getFilteredAndSortedFarmers(
                           FarmerClassification.blacklist, farmersByCategory)
                       .length,
-                  total: farmersByCategory[FarmerClassification.blacklist]?.length ?? 0,
+                  total: farmersByCategory[FarmerClassification.blacklist]
+                          ?.length ??
+                      0,
                   color: Colors.red,
                 ),
                 _CategoryTab(
@@ -571,7 +581,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                   count: _getFilteredAndSortedFarmers(
                           FarmerClassification.reminder, farmersByCategory)
                       .length,
-                  total: farmersByCategory[FarmerClassification.reminder]?.length ?? 0,
+                  total: farmersByCategory[FarmerClassification.reminder]
+                          ?.length ??
+                      0,
                   color: Colors.blue,
                 ),
               ],
@@ -580,7 +592,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
           body: Column(
             children: [
               _buildSearchBar(),
-              if (_showFilters) _buildFilterPanel(availableVillages, availableCropTypes),
+              if (_showFilters)
+                _buildFilterPanel(availableVillages, availableCropTypes),
               Expanded(
                 child: state.status == FarmerStatus.loading
                     ? const Center(child: CircularProgressIndicator())
@@ -590,12 +603,15 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                           _CategoryView(
                             category: FarmerClassification.regular,
                             farmers: _getFilteredAndSortedFarmers(
-                                FarmerClassification.regular, farmersByCategory),
+                                FarmerClassification.regular,
+                                farmersByCategory),
                             color: Colors.green,
                             isSelectionMode: _isSelectionMode,
                             selectedIds: _selectedFarmerIds,
                             onToggleSelection: _toggleSelection,
-                            onSelectAll: () => _selectAll(FarmerClassification.regular, farmersByCategory),
+                            onSelectAll: () => _selectAll(
+                                FarmerClassification.regular,
+                                farmersByCategory),
                             onDeselectAll: _deselectAll,
                           ),
                           _CategoryView(
@@ -606,29 +622,36 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                             isSelectionMode: _isSelectionMode,
                             selectedIds: _selectedFarmerIds,
                             onToggleSelection: _toggleSelection,
-                            onSelectAll: () => _selectAll(FarmerClassification.sleepy, farmersByCategory),
+                            onSelectAll: () => _selectAll(
+                                FarmerClassification.sleepy, farmersByCategory),
                             onDeselectAll: _deselectAll,
                           ),
                           _CategoryView(
                             category: FarmerClassification.blacklist,
                             farmers: _getFilteredAndSortedFarmers(
-                                FarmerClassification.blacklist, farmersByCategory),
+                                FarmerClassification.blacklist,
+                                farmersByCategory),
                             color: Colors.red,
                             isSelectionMode: _isSelectionMode,
                             selectedIds: _selectedFarmerIds,
                             onToggleSelection: _toggleSelection,
-                            onSelectAll: () => _selectAll(FarmerClassification.blacklist, farmersByCategory),
+                            onSelectAll: () => _selectAll(
+                                FarmerClassification.blacklist,
+                                farmersByCategory),
                             onDeselectAll: _deselectAll,
                           ),
                           _CategoryView(
                             category: FarmerClassification.reminder,
                             farmers: _getFilteredAndSortedFarmers(
-                                FarmerClassification.reminder, farmersByCategory),
+                                FarmerClassification.reminder,
+                                farmersByCategory),
                             color: Colors.blue,
                             isSelectionMode: _isSelectionMode,
                             selectedIds: _selectedFarmerIds,
                             onToggleSelection: _toggleSelection,
-                            onSelectAll: () => _selectAll(FarmerClassification.reminder, farmersByCategory),
+                            onSelectAll: () => _selectAll(
+                                FarmerClassification.reminder,
+                                farmersByCategory),
                             onDeselectAll: _deselectAll,
                           ),
                         ],
