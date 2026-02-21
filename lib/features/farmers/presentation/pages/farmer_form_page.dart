@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/id_generator.dart';
 import '../../../../shared/domain/entities/farmer_entity.dart';
@@ -22,9 +23,11 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
   late final TextEditingController _plotCountController;
   late final TextEditingController _areaPerPlotController;
   late final TextEditingController _cropTypeController;
-  
+
   FarmerClassification _selectedClassification = FarmerClassification.regular;
   bool _isLoading = false;
+
+  static const double _maxAreaPerPlot = 9999.99;
 
   @override
   void initState() {
@@ -55,10 +58,11 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
 
     setState(() => _isLoading = true);
 
+    final contact = _contactController.text.replaceAll(RegExp(r'\D'), '');
     final farmer = FarmerEntity(
       id: widget.farmer?.id ?? generateFarmerId(),
       fullName: _fullNameController.text.trim(),
-      contactNumber: _contactController.text.trim(),
+      contactNumber: contact.isEmpty ? _contactController.text.trim() : contact,
       village: _villageController.text.trim(),
       plotCount: int.parse(_plotCountController.text),
       areaPerPlot: double.parse(_areaPerPlotController.text),
@@ -86,18 +90,13 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
         listener: (context, state) {
           if (state.status == FarmerStatus.success) {
             Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.successMessage ?? 'Success'),
-                backgroundColor: Colors.green,
-              ),
-            );
           } else if (state.status == FarmerStatus.failure) {
             setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.errorMessage ?? 'An error occurred'),
                 backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
               ),
             );
           }
@@ -109,13 +108,33 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (widget.farmer != null) ...[
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Farmer ID',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                    ),
+                    subtitle: SelectableText(
+                      widget.farmer!.id,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontFamily: 'monospace',
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 TextFormField(
                   controller: _fullNameController,
                   decoration: const InputDecoration(
                     labelText: 'Full Name *',
                     prefixIcon: Icon(Icons.person),
+                    hintText: 'Enter full name',
                   ),
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Full name is required';
@@ -129,8 +148,14 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                   decoration: const InputDecoration(
                     labelText: 'Contact Number *',
                     prefixIcon: Icon(Icons.phone),
+                    hintText: '10-12 digits',
                   ),
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d\s\-+]')),
+                    LengthLimitingTextInputFormatter(14),
+                  ],
+                  textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Contact number is required';
@@ -148,8 +173,10 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                   decoration: const InputDecoration(
                     labelText: 'Village/Location *',
                     prefixIcon: Icon(Icons.location_on),
+                    hintText: 'Village or location name',
                   ),
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Village is required';
@@ -168,13 +195,17 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                           prefixIcon: Icon(Icons.agriculture),
                         ),
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(4),
+                        ],
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Plot count is required';
+                            return 'Required';
                           }
                           final count = int.tryParse(value);
                           if (count == null || count <= 0) {
-                            return 'Enter a valid positive number';
+                            return 'Enter a positive number';
                           }
                           return null;
                         },
@@ -185,17 +216,25 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                       child: TextFormField(
                         controller: _areaPerPlotController,
                         decoration: const InputDecoration(
-                          labelText: 'Area per Plot (acres) *',
+                          labelText: 'Area/Plot (acres) *',
                           prefixIcon: Icon(Icons.square_foot),
+                          hintText: 'e.g. 2.5',
                         ),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                          LengthLimitingTextInputFormatter(8),
+                        ],
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Area is required';
+                            return 'Required';
                           }
                           final area = double.tryParse(value);
                           if (area == null || area <= 0) {
-                            return 'Enter a valid positive number';
+                            return 'Enter a positive number';
+                          }
+                          if (area > _maxAreaPerPlot) {
+                            return 'Max $_maxAreaPerPlot acres';
                           }
                           return null;
                         },

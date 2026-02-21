@@ -26,13 +26,14 @@ class FarmerRepositoryImpl implements FarmerRepository {
     return _localDataSource.searchFarmers(query.trim());
   }
 
+  static String _normalizeContact(String c) => c.replaceAll(RegExp(r'\D'), '');
+
   @override
   Future<FarmerEntity> createFarmer(FarmerEntity farmer) async {
-    // Check for duplicates
-    final exists = await _localDataSource.farmerExists(
-      farmer.fullName,
-      farmer.contactNumber,
-    );
+    final contact = _normalizeContact(farmer.contactNumber).isNotEmpty
+        ? _normalizeContact(farmer.contactNumber)
+        : farmer.contactNumber;
+    final exists = await _localDataSource.farmerExists(farmer.fullName, contact);
     if (exists) {
       throw DuplicateFarmerException();
     }
@@ -64,12 +65,15 @@ class FarmerRepositoryImpl implements FarmerRepository {
       throw FarmerNotFoundException(farmer.id);
     }
 
-    // Check for duplicates (excluding current farmer)
-    final exists = await _localDataSource.farmerExists(
+    final contact = _normalizeContact(farmer.contactNumber).isNotEmpty
+        ? _normalizeContact(farmer.contactNumber)
+        : farmer.contactNumber;
+    final exists = await _localDataSource.farmerExistsExcludingId(
       farmer.fullName,
-      farmer.contactNumber,
+      contact,
+      farmer.id,
     );
-    if (exists && existing.id != farmer.id) {
+    if (exists) {
       throw DuplicateFarmerException();
     }
 

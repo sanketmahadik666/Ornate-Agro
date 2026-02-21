@@ -114,16 +114,41 @@ class FarmerLocalDataSource {
     );
   }
 
-  /// Check if farmer exists
+  /// Normalize contact to digits for comparison
+  static String _normalizeContact(String contact) {
+    return contact.replaceAll(RegExp(r'\D'), '');
+  }
+
+  /// Check if farmer exists (by name and contact; contact compared after normalizing to digits)
   Future<bool> farmerExists(String fullName, String contactNumber) async {
+    final normalized = _normalizeContact(contactNumber);
+    if (normalized.isEmpty) return false;
     final db = _database.database;
-    final maps = await db.query(
-      _tableName,
-      where: 'full_name = ? AND contact_number = ?',
-      whereArgs: [fullName, contactNumber],
-      limit: 1,
-    );
-    return maps.isNotEmpty;
+    final maps = await db.query(_tableName);
+    for (final map in maps) {
+      final existingContact = _normalizeContact(map['contact_number'] as String);
+      if ((map['full_name'] as String).trim().toLowerCase() == fullName.trim().toLowerCase() &&
+          existingContact == normalized) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Check if another farmer (excluding [excludeId]) exists with same name and contact
+  Future<bool> farmerExistsExcludingId(String fullName, String contactNumber, String excludeId) async {
+    final normalized = _normalizeContact(contactNumber);
+    if (normalized.isEmpty) return false;
+    final db = _database.database;
+    final maps = await db.query(_tableName, where: 'id != ?', whereArgs: [excludeId]);
+    for (final map in maps) {
+      final existingContact = _normalizeContact(map['contact_number'] as String);
+      if ((map['full_name'] as String).trim().toLowerCase() == fullName.trim().toLowerCase() &&
+          existingContact == normalized) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Get farmers by classification

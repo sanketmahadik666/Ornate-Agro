@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:csv/csv.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../../../../shared/domain/entities/farmer_entity.dart';
+import '../bloc/farmer_bloc.dart';
 
 /// Enhanced interface showing farmers sorted by classification categories with sorting, filtering, bulk actions, and export
 class FarmersByCategoryPage extends StatefulWidget {
@@ -30,67 +32,47 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
   SortOption _sortOption = SortOption.nameAsc;
   bool _isSelectionMode = false;
   final Set<String> _selectedFarmerIds = {};
-  final Map<FarmerClassification, List<FarmerEntity>> _farmersByCategory = {};
 
   // Filters
   String? _selectedVillage;
   String? _selectedCropType;
   DateTimeRange? _dateRange;
-  final List<String> _availableVillages = [];
-  final List<String> _availableCropTypes = [];
   bool _showFilters = false;
+
+  /// Group farmers by classification from bloc state
+  Map<FarmerClassification, List<FarmerEntity>> _groupByClassification(
+      List<FarmerEntity>? farmers) {
+    final map = <FarmerClassification, List<FarmerEntity>>{
+      for (final c in FarmerClassification.values) c: [],
+    };
+    if (farmers == null) return map;
+    for (final f in farmers) {
+      map[f.classification]!.add(f);
+    }
+    return map;
+  }
+
+  List<String> _getVillages(List<FarmerEntity>? farmers) {
+    if (farmers == null || farmers.isEmpty) return [];
+    return farmers.map((f) => f.village).toSet().toList()..sort();
+  }
+
+  List<String> _getCropTypes(List<FarmerEntity>? farmers) {
+    if (farmers == null || farmers.isEmpty) return [];
+    return farmers.map((f) => f.assignedCropTypeId).toSet().toList()..sort();
+  }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _loadFarmers();
-  }
-
-  void _loadFarmers() {
-    // TODO: Load from repository
-    // For now, simulate data
-    setState(() {
-      _farmersByCategory[FarmerClassification.regular] =
-          _generateMockFarmers(FarmerClassification.regular, 15);
-      _farmersByCategory[FarmerClassification.sleepy] =
-          _generateMockFarmers(FarmerClassification.sleepy, 8);
-      _farmersByCategory[FarmerClassification.blacklist] =
-          _generateMockFarmers(FarmerClassification.blacklist, 5);
-      _farmersByCategory[FarmerClassification.reminder] =
-          _generateMockFarmers(FarmerClassification.reminder, 12);
-
-      // Extract unique villages and crop types
-      final allFarmers =
-          _farmersByCategory.values.expand((list) => list).toList();
-      _availableVillages
-          .addAll(allFarmers.map((f) => f.village).toSet().toList()..sort());
-      _availableCropTypes.addAll(
-          allFarmers.map((f) => f.assignedCropTypeId).toSet().toList()..sort());
-    });
-  }
-
-  List<FarmerEntity> _generateMockFarmers(
-      FarmerClassification category, int count) {
-    return List.generate(count, (index) {
-      return FarmerEntity(
-        id: 'FRM-${category.name}-${index + 1}',
-        fullName: 'Farmer ${category.name.toUpperCase()} ${index + 1}',
-        contactNumber: '9876543${100 + index}',
-        village: 'Village ${(index % 5) + 1}',
-        plotCount: (index % 3) + 1,
-        areaPerPlot: 2.5 + (index * 0.3),
-        assignedCropTypeId: 'crop-${(index % 3) + 1}',
-        classification: category,
-        lastContactAt: DateTime.now().subtract(Duration(days: index * 2)),
-        createdAt: DateTime.now().subtract(Duration(days: 30 + index)),
-      );
-    });
+    context.read<FarmerBloc>().add(const FarmerLoadRequested());
   }
 
   List<FarmerEntity> _getFilteredAndSortedFarmers(
-      FarmerClassification category) {
-    var farmers = List<FarmerEntity>.from(_farmersByCategory[category] ?? []);
+      FarmerClassification category,
+      Map<FarmerClassification, List<FarmerEntity>> farmersByCategory) {
+    var farmers = List<FarmerEntity>.from(farmersByCategory[category] ?? []);
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
@@ -164,8 +146,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
     });
   }
 
-  void _selectAll(FarmerClassification category) {
-    final farmers = _getFilteredAndSortedFarmers(category);
+  void _selectAll(FarmerClassification category,
+      Map<FarmerClassification, List<FarmerEntity>> farmersByCategory) {
+    final farmers = _getFilteredAndSortedFarmers(category, farmersByCategory);
     setState(() {
       _isSelectionMode = true;
       _selectedFarmerIds.addAll(farmers.map((f) => f.id));
@@ -179,8 +162,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
     });
   }
 
-  Future<void> _exportCategory(FarmerClassification category) async {
-    final farmers = _getFilteredAndSortedFarmers(category);
+  Future<void> _exportCategory(FarmerClassification category,
+      Map<FarmerClassification, List<FarmerEntity>> farmersByCategory) async {
+    final farmers = _getFilteredAndSortedFarmers(category, farmersByCategory);
     if (farmers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No farmers to export')),
@@ -244,8 +228,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
     }
   }
 
-  void _showBulkActionsDialog(FarmerClassification category) {
-    final selectedFarmers = _getFilteredAndSortedFarmers(category)
+  void _showBulkActionsDialog(FarmerClassification category,
+      Map<FarmerClassification, List<FarmerEntity>> farmersByCategory) {
+    final selectedFarmers = _getFilteredAndSortedFarmers(category, farmersByCategory)
         .where((f) => _selectedFarmerIds.contains(f.id))
         .toList();
 
@@ -475,175 +460,184 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Farmers by Category'),
-        actions: [
-          if (_isSelectionMode) ...[
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: _deselectAll,
-              tooltip: 'Cancel Selection',
-            ),
-            IconButton(
-              icon: Badge(
-                label: Text('${_selectedFarmerIds.length}'),
-                child: const Icon(Icons.checklist),
-              ),
-              onPressed: () => _showBulkActionsDialog(_getCurrentCategory()),
-              tooltip: 'Bulk Actions',
-            ),
-          ] else ...[
-            IconButton(
-              icon: Icon(
-                  _showFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
-              onPressed: () => setState(() => _showFilters = !_showFilters),
-              tooltip: 'Toggle Filters',
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.sort),
-              tooltip: 'Sort Options',
-              onSelected: (value) {
-                setState(() {
-                  _sortOption =
-                      SortOption.values.firstWhere((e) => e.name == value);
-                });
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                    value: 'nameAsc', child: Text('Name (A-Z)')),
-                const PopupMenuItem(
-                    value: 'nameDesc', child: Text('Name (Z-A)')),
-                const PopupMenuItem(
-                    value: 'dateAsc', child: Text('Last Contact (Oldest)')),
-                const PopupMenuItem(
-                    value: 'dateDesc', child: Text('Last Contact (Newest)')),
-                const PopupMenuItem(
-                    value: 'villageAsc', child: Text('Village (A-Z)')),
-                const PopupMenuItem(
-                    value: 'villageDesc', child: Text('Village (Z-A)')),
+    return BlocBuilder<FarmerBloc, FarmerState>(
+      buildWhen: (prev, curr) => prev.farmers != curr.farmers,
+      builder: (context, state) {
+        final farmers = state.farmers;
+        final farmersByCategory = _groupByClassification(farmers);
+        final availableVillages = _getVillages(farmers);
+        final availableCropTypes = _getCropTypes(farmers);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Farmers by Category'),
+            actions: [
+              if (_isSelectionMode) ...[
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _deselectAll,
+                  tooltip: 'Cancel Selection',
+                ),
+                IconButton(
+                  icon: Badge(
+                    label: Text('${_selectedFarmerIds.length}'),
+                    child: const Icon(Icons.checklist),
+                  ),
+                  onPressed: () => _showBulkActionsDialog(_getCurrentCategory(), farmersByCategory),
+                  tooltip: 'Bulk Actions',
+                ),
+              ] else ...[
+                IconButton(
+                  icon: Icon(
+                      _showFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
+                  onPressed: () => setState(() => _showFilters = !_showFilters),
+                  tooltip: 'Toggle Filters',
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.sort),
+                  tooltip: 'Sort Options',
+                  onSelected: (value) {
+                    setState(() {
+                      _sortOption =
+                          SortOption.values.firstWhere((e) => e.name == value);
+                    });
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                        value: 'nameAsc', child: Text('Name (A-Z)')),
+                    const PopupMenuItem(
+                        value: 'nameDesc', child: Text('Name (Z-A)')),
+                    const PopupMenuItem(
+                        value: 'dateAsc', child: Text('Last Contact (Oldest)')),
+                    const PopupMenuItem(
+                        value: 'dateDesc', child: Text('Last Contact (Newest)')),
+                    const PopupMenuItem(
+                        value: 'villageAsc', child: Text('Village (A-Z)')),
+                    const PopupMenuItem(
+                        value: 'villageDesc', child: Text('Village (Z-A)')),
+                  ],
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.download),
+                  tooltip: 'Export',
+                  onSelected: (value) {
+                    final category = FarmerClassification.values
+                        .firstWhere((e) => e.name == value);
+                    _exportCategory(category, farmersByCategory);
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                        value: 'regular', child: Text('Export Regular')),
+                    const PopupMenuItem(
+                        value: 'sleepy', child: Text('Export Sleepy')),
+                    const PopupMenuItem(
+                        value: 'blacklist', child: Text('Export Blacklist')),
+                    const PopupMenuItem(
+                        value: 'reminder', child: Text('Export Reminder')),
+                  ],
+                ),
               ],
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.download),
-              tooltip: 'Export',
-              onSelected: (value) {
-                final category = FarmerClassification.values
-                    .firstWhere((e) => e.name == value);
-                _exportCategory(category);
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                    value: 'regular', child: Text('Export Regular')),
-                const PopupMenuItem(
-                    value: 'sleepy', child: Text('Export Sleepy')),
-                const PopupMenuItem(
-                    value: 'blacklist', child: Text('Export Blacklist')),
-                const PopupMenuItem(
-                    value: 'reminder', child: Text('Export Reminder')),
-              ],
-            ),
-          ],
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: [
-            _CategoryTab(
-              label: 'Regular',
-              count: _getFilteredAndSortedFarmers(FarmerClassification.regular)
-                  .length,
-              total:
-                  _farmersByCategory[FarmerClassification.regular]?.length ?? 0,
-              color: Colors.green,
-            ),
-            _CategoryTab(
-              label: 'Sleepy',
-              count: _getFilteredAndSortedFarmers(FarmerClassification.sleepy)
-                  .length,
-              total:
-                  _farmersByCategory[FarmerClassification.sleepy]?.length ?? 0,
-              color: Colors.orange,
-            ),
-            _CategoryTab(
-              label: 'Blacklist',
-              count:
-                  _getFilteredAndSortedFarmers(FarmerClassification.blacklist)
-                      .length,
-              total:
-                  _farmersByCategory[FarmerClassification.blacklist]?.length ??
-                      0,
-              color: Colors.red,
-            ),
-            _CategoryTab(
-              label: 'Reminder',
-              count: _getFilteredAndSortedFarmers(FarmerClassification.reminder)
-                  .length,
-              total:
-                  _farmersByCategory[FarmerClassification.reminder]?.length ??
-                      0,
-              color: Colors.blue,
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          if (_showFilters) _buildFilterPanel(),
-          Expanded(
-            child: TabBarView(
+            ],
+            bottom: TabBar(
               controller: _tabController,
-              children: [
-                _CategoryView(
-                  category: FarmerClassification.regular,
-                  farmers: _getFilteredAndSortedFarmers(
-                      FarmerClassification.regular),
+              isScrollable: true,
+              tabs: [
+                _CategoryTab(
+                  label: 'Regular',
+                  count: _getFilteredAndSortedFarmers(
+                          FarmerClassification.regular, farmersByCategory)
+                      .length,
+                  total: farmersByCategory[FarmerClassification.regular]?.length ?? 0,
                   color: Colors.green,
-                  isSelectionMode: _isSelectionMode,
-                  selectedIds: _selectedFarmerIds,
-                  onToggleSelection: _toggleSelection,
-                  onSelectAll: () => _selectAll(FarmerClassification.regular),
-                  onDeselectAll: _deselectAll,
                 ),
-                _CategoryView(
-                  category: FarmerClassification.sleepy,
-                  farmers:
-                      _getFilteredAndSortedFarmers(FarmerClassification.sleepy),
+                _CategoryTab(
+                  label: 'Sleepy',
+                  count: _getFilteredAndSortedFarmers(
+                          FarmerClassification.sleepy, farmersByCategory)
+                      .length,
+                  total: farmersByCategory[FarmerClassification.sleepy]?.length ?? 0,
                   color: Colors.orange,
-                  isSelectionMode: _isSelectionMode,
-                  selectedIds: _selectedFarmerIds,
-                  onToggleSelection: _toggleSelection,
-                  onSelectAll: () => _selectAll(FarmerClassification.sleepy),
-                  onDeselectAll: _deselectAll,
                 ),
-                _CategoryView(
-                  category: FarmerClassification.blacklist,
-                  farmers: _getFilteredAndSortedFarmers(
-                      FarmerClassification.blacklist),
+                _CategoryTab(
+                  label: 'Blacklist',
+                  count: _getFilteredAndSortedFarmers(
+                          FarmerClassification.blacklist, farmersByCategory)
+                      .length,
+                  total: farmersByCategory[FarmerClassification.blacklist]?.length ?? 0,
                   color: Colors.red,
-                  isSelectionMode: _isSelectionMode,
-                  selectedIds: _selectedFarmerIds,
-                  onToggleSelection: _toggleSelection,
-                  onSelectAll: () => _selectAll(FarmerClassification.blacklist),
-                  onDeselectAll: _deselectAll,
                 ),
-                _CategoryView(
-                  category: FarmerClassification.reminder,
-                  farmers: _getFilteredAndSortedFarmers(
-                      FarmerClassification.reminder),
+                _CategoryTab(
+                  label: 'Reminder',
+                  count: _getFilteredAndSortedFarmers(
+                          FarmerClassification.reminder, farmersByCategory)
+                      .length,
+                  total: farmersByCategory[FarmerClassification.reminder]?.length ?? 0,
                   color: Colors.blue,
-                  isSelectionMode: _isSelectionMode,
-                  selectedIds: _selectedFarmerIds,
-                  onToggleSelection: _toggleSelection,
-                  onSelectAll: () => _selectAll(FarmerClassification.reminder),
-                  onDeselectAll: _deselectAll,
                 ),
               ],
             ),
           ),
-        ],
-      ),
+          body: Column(
+            children: [
+              _buildSearchBar(),
+              if (_showFilters) _buildFilterPanel(availableVillages, availableCropTypes),
+              Expanded(
+                child: state.status == FarmerStatus.loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _CategoryView(
+                            category: FarmerClassification.regular,
+                            farmers: _getFilteredAndSortedFarmers(
+                                FarmerClassification.regular, farmersByCategory),
+                            color: Colors.green,
+                            isSelectionMode: _isSelectionMode,
+                            selectedIds: _selectedFarmerIds,
+                            onToggleSelection: _toggleSelection,
+                            onSelectAll: () => _selectAll(FarmerClassification.regular, farmersByCategory),
+                            onDeselectAll: _deselectAll,
+                          ),
+                          _CategoryView(
+                            category: FarmerClassification.sleepy,
+                            farmers: _getFilteredAndSortedFarmers(
+                                FarmerClassification.sleepy, farmersByCategory),
+                            color: Colors.orange,
+                            isSelectionMode: _isSelectionMode,
+                            selectedIds: _selectedFarmerIds,
+                            onToggleSelection: _toggleSelection,
+                            onSelectAll: () => _selectAll(FarmerClassification.sleepy, farmersByCategory),
+                            onDeselectAll: _deselectAll,
+                          ),
+                          _CategoryView(
+                            category: FarmerClassification.blacklist,
+                            farmers: _getFilteredAndSortedFarmers(
+                                FarmerClassification.blacklist, farmersByCategory),
+                            color: Colors.red,
+                            isSelectionMode: _isSelectionMode,
+                            selectedIds: _selectedFarmerIds,
+                            onToggleSelection: _toggleSelection,
+                            onSelectAll: () => _selectAll(FarmerClassification.blacklist, farmersByCategory),
+                            onDeselectAll: _deselectAll,
+                          ),
+                          _CategoryView(
+                            category: FarmerClassification.reminder,
+                            farmers: _getFilteredAndSortedFarmers(
+                                FarmerClassification.reminder, farmersByCategory),
+                            color: Colors.blue,
+                            isSelectionMode: _isSelectionMode,
+                            selectedIds: _selectedFarmerIds,
+                            onToggleSelection: _toggleSelection,
+                            onSelectAll: () => _selectAll(FarmerClassification.reminder, farmersByCategory),
+                            onDeselectAll: _deselectAll,
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -684,7 +678,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
     );
   }
 
-  Widget _buildFilterPanel() {
+  Widget _buildFilterPanel(
+      List<String> availableVillages, List<String> availableCropTypes) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -722,14 +717,13 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
             spacing: 12,
             runSpacing: 12,
             children: [
-              // Village filter
               DropdownButtonFormField<String>(
                 value: _selectedVillage,
                 hint: const Text('Village'),
                 items: [
                   const DropdownMenuItem(
                       value: null, child: Text('All Villages')),
-                  ..._availableVillages
+                  ...availableVillages
                       .map((v) => DropdownMenuItem(value: v, child: Text(v))),
                 ],
                 onChanged: (value) => setState(() => _selectedVillage = value),
@@ -740,13 +734,12 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
-              // Crop type filter
               DropdownButtonFormField<String>(
                 value: _selectedCropType,
                 hint: const Text('Crop Type'),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('All Crops')),
-                  ..._availableCropTypes
+                  ...availableCropTypes
                       .map((c) => DropdownMenuItem(value: c, child: Text(c))),
                 ],
                 onChanged: (value) => setState(() => _selectedCropType = value),
