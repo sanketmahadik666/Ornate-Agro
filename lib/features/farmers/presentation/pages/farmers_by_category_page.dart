@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../shared/domain/entities/farmer_entity.dart';
 import '../../../../shared/domain/entities/contact_log_entity.dart';
 import '../../../../core/services/classification_service.dart';
+import '../../../../core/routes/app_router.dart';
 import '../bloc/farmer_bloc.dart';
 import '../../../contact_log/presentation/bloc/contact_log_bloc.dart';
 
@@ -833,6 +834,11 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
                       ),
               ),
             ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => Navigator.pushNamed(context, AppRouter.farmerForm),
+            icon: const Icon(Icons.person_add),
+            label: const Text('Add Farmer'),
           ),
         );
       },

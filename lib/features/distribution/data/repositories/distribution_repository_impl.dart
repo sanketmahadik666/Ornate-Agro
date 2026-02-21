@@ -79,6 +79,11 @@ class DistributionRepositoryImpl implements DistributionRepository {
       throw DistributionNotFoundException(id);
     }
 
+    if (quantityReturned > existing.outstandingQuantity) {
+      throw DistributionException(
+          'Cannot return $quantityReturned. Outstanding quantity is only ${existing.outstandingQuantity}.');
+    }
+
     final newTotalReturned = existing.quantityReturned + quantityReturned;
 
     // Status logic: if total returned >= distributed, it's fulfilled.

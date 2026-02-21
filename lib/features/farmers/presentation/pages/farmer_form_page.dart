@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/id_generator.dart';
 import '../../../../shared/domain/entities/farmer_entity.dart';
 import '../bloc/farmer_bloc.dart';
+import '../../../crop_config/presentation/bloc/crop_type_bloc.dart';
 
 /// Add/Edit farmer form page
 class FarmerFormPage extends StatefulWidget {
@@ -22,7 +23,7 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
   late final TextEditingController _villageController;
   late final TextEditingController _plotCountController;
   late final TextEditingController _areaPerPlotController;
-  late final TextEditingController _cropTypeController;
+  String? _selectedCropTypeId;
 
   FarmerClassification _selectedClassification = FarmerClassification.regular;
   bool _isLoading = false;
@@ -34,12 +35,19 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
     super.initState();
     final farmer = widget.farmer;
     _fullNameController = TextEditingController(text: farmer?.fullName ?? '');
-    _contactController = TextEditingController(text: farmer?.contactNumber ?? '');
+    _contactController =
+        TextEditingController(text: farmer?.contactNumber ?? '');
     _villageController = TextEditingController(text: farmer?.village ?? '');
-    _plotCountController = TextEditingController(text: farmer?.plotCount.toString() ?? '');
-    _areaPerPlotController = TextEditingController(text: farmer?.areaPerPlot.toString() ?? '');
-    _cropTypeController = TextEditingController(text: farmer?.assignedCropTypeId ?? '');
-    _selectedClassification = farmer?.classification ?? FarmerClassification.regular;
+    _plotCountController =
+        TextEditingController(text: farmer?.plotCount.toString() ?? '');
+    _areaPerPlotController =
+        TextEditingController(text: farmer?.areaPerPlot.toString() ?? '');
+    _selectedCropTypeId = farmer?.assignedCropTypeId;
+    _selectedClassification =
+        farmer?.classification ?? FarmerClassification.regular;
+
+    // Load available crop types for the dropdown
+    context.read<CropTypeBloc>().add(const CropTypeLoadRequested());
   }
 
   @override
@@ -49,7 +57,6 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
     _villageController.dispose();
     _plotCountController.dispose();
     _areaPerPlotController.dispose();
-    _cropTypeController.dispose();
     super.dispose();
   }
 
@@ -66,7 +73,7 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
       village: _villageController.text.trim(),
       plotCount: int.parse(_plotCountController.text),
       areaPerPlot: double.parse(_areaPerPlotController.text),
-      assignedCropTypeId: _cropTypeController.text.trim(),
+      assignedCropTypeId: _selectedCropTypeId ?? '',
       classification: _selectedClassification,
       lastContactAt: widget.farmer?.lastContactAt,
       createdAt: widget.farmer?.createdAt,
@@ -220,9 +227,11 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                           prefixIcon: Icon(Icons.square_foot),
                           hintText: 'e.g. 2.5',
                         ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}')),
                           LengthLimitingTextInputFormatter(8),
                         ],
                         validator: (value) {
@@ -243,18 +252,48 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _cropTypeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Assigned Crop Type ID *',
-                    prefixIcon: Icon(Icons.eco),
-                    hintText: 'e.g., crop-1',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Crop type is required';
+                BlocBuilder<CropTypeBloc, CropTypeState>(
+                  builder: (context, cropState) {
+                    if (cropState.status == CropTypeBlocStatus.loading) {
+                      return const Center(child: CircularProgressIndicator());
                     }
-                    return null;
+
+                    final cropTypes = cropState.cropTypes ?? [];
+                    if (cropTypes.isEmpty) {
+                      return const Text(
+                          'No crop types configured. Please add them in Crop Config.',
+                          style: TextStyle(color: Colors.red));
+                    }
+
+                    // Protect against deleted crop types
+                    final isValidValue = _selectedCropTypeId != null &&
+                        cropTypes.any((c) => c.id == _selectedCropTypeId);
+                    final currentValue =
+                        isValidValue ? _selectedCropTypeId : null;
+
+                    return DropdownButtonFormField<String>(
+                      value: currentValue,
+                      decoration: const InputDecoration(
+                        labelText: 'Assigned Crop Type *',
+                        prefixIcon: Icon(Icons.eco),
+                      ),
+                      items: cropTypes.map((crop) {
+                        return DropdownMenuItem(
+                          value: crop.id,
+                          child: Text(
+                              '${crop.name} (${crop.growingPeriodDays} days)'),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedCropTypeId = value);
+                      },
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Crop type is required';
+                        }
+                        return null;
+                      },
+                    );
                   },
                 ),
                 const SizedBox(height: 16),
@@ -288,7 +327,9 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(widget.farmer == null ? 'Create Farmer' : 'Update Farmer'),
+                      : Text(widget.farmer == null
+                          ? 'Create Farmer'
+                          : 'Update Farmer'),
                 ),
               ],
             ),

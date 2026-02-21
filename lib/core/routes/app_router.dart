@@ -17,6 +17,7 @@ abstract final class AppRouter {
   static const String dashboard = '/dashboard';
   static const String backtesting = '/backtesting';
   static const String farmers = '/farmers';
+  static const String farmerForm = '/farmers/new';
   static const String farmersByCategory = '/farmers/categories';
   static const String distribution = '/distribution';
   static const String distributionNew = '/distribution/new';
@@ -35,6 +36,8 @@ abstract final class AppRouter {
         return MaterialPageRoute(builder: (_) => const BacktestPage());
       case farmers:
         return MaterialPageRoute(builder: (_) => const FarmersListPage());
+      case farmerForm:
+        return MaterialPageRoute(builder: (_) => const FarmerFormPage());
       case farmersByCategory:
         return MaterialPageRoute(builder: (_) => const FarmersByCategoryPage());
       case distribution:
