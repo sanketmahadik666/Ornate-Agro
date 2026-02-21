@@ -7,7 +7,7 @@ import 'database_factory.dart'
 /// SQLite database implementation
 class AppDatabaseImpl implements AppDatabase {
   static const String _databaseName = 'ornate_agro.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   Database? _database;
 
@@ -54,6 +54,9 @@ class AppDatabaseImpl implements AppDatabase {
 
     // Distributions table (Req 3)
     await _createDistributionsTable(db);
+
+    // Crop types table (Req 8)
+    await _createCropTypesTable(db);
   }
 
   /// Create the distributions table (shared between onCreate and onUpgrade).
@@ -85,9 +88,24 @@ class AppDatabaseImpl implements AppDatabase {
         'CREATE INDEX IF NOT EXISTS idx_distributions_date ON distributions(distribution_date)');
   }
 
+  /// Create the crop_types table (shared between onCreate and onUpgrade).
+  Future<void> _createCropTypesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crop_types (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        growing_period_days INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _createDistributionsTable(db);
+    }
+    if (oldVersion < 3) {
+      await _createCropTypesTable(db);
     }
   }
 
