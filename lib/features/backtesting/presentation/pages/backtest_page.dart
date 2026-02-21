@@ -20,7 +20,8 @@ class BacktestPage extends StatefulWidget {
 class _BacktestPageState extends State<BacktestPage> {
   bool _debugEnabled = false;
   List<LogEntry> _logs = [];
-  BacktestProgress _progress = const BacktestProgress(status: BacktestStatus.stopped);
+  BacktestProgress _progress =
+      const BacktestProgress(status: BacktestStatus.stopped);
   File? _inputFile;
   bool _isRunning = false;
 
@@ -80,7 +81,7 @@ class _BacktestPageState extends State<BacktestPage> {
       }
 
       elapsed++;
-      final progress = (elapsed / 120 * 100).clamp(0, 100); // Simulate 2-minute backtest
+      final progress = (elapsed / 120 * 100).clamp(0, 100).toDouble();
       final remaining = ((120 - elapsed) * 1000).round();
 
       setState(() {
@@ -165,7 +166,8 @@ class _BacktestPageState extends State<BacktestPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Stop Backtest?'),
-        content: const Text('Are you sure you want to stop the current backtest? Results will be saved.'),
+        content: const Text(
+            'Are you sure you want to stop the current backtest? Results will be saved.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -287,7 +289,8 @@ class _BacktestPageState extends State<BacktestPage> {
                         },
                         onExport: (format) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Exporting logs as $format...')),
+                            SnackBar(
+                                content: Text('Exporting logs as $format...')),
                           );
                         },
                       ),

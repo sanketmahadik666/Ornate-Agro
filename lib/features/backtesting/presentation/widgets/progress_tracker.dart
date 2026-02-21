@@ -84,7 +84,7 @@ class ProgressTracker extends StatelessWidget {
             minHeight: 8,
             backgroundColor: Colors.grey.shade200,
             valueColor: AlwaysStoppedAnimation<Color>(
-              _getStatusColor(),
+              _getStatusColor(context),
             ),
           ),
         ),
@@ -180,7 +180,7 @@ class ProgressTracker extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor() {
+  Color _getStatusColor(BuildContext context) {
     switch (progress.status) {
       case BacktestStatus.running:
         return Theme.of(context).colorScheme.primary;

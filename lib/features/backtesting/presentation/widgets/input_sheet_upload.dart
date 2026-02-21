@@ -1,7 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../data/services/file_parser_service.dart' show FileParserService, ValidationError, ValidationErrorType;
+import '../../data/services/file_parser_service.dart'
+    show
+        FileParserService,
+        ValidationError,
+        ValidationErrorType,
+        FieldSchema,
+        FieldType;
 
 /// Input sheet upload component with validation (Req: Input Sheet Integration)
 class InputSheetUpload extends StatefulWidget {
@@ -44,10 +50,7 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            if (_selectedFile == null)
-              _buildUploadZone()
-            else
-              _buildFileInfo(),
+            if (_selectedFile == null) _buildUploadZone() else _buildFileInfo(),
             if (_previewData != null) ...[
               const SizedBox(height: 16),
               _buildPreview(),
@@ -75,7 +78,10 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: _isDragging
-                  ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                  ? Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withOpacity(0.3)
                   : Theme.of(context).colorScheme.surface,
               border: Border.all(
                 color: _isDragging
@@ -223,7 +229,8 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
               rows: _previewData!.entries.map((e) {
                 final error = _validationErrors.firstWhere(
                   (err) => err.field == e.key,
-                  orElse: () => ValidationError(field: '', message: '', type: ValidationErrorType.none),
+                  orElse: () => ValidationError(
+                      field: '', message: '', type: ValidationErrorType.none),
                 );
                 return DataRow(
                   cells: [
@@ -235,7 +242,8 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
                           ? const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                Icon(Icons.check_circle,
+                                    color: Colors.green, size: 16),
                                 SizedBox(width: 4),
                                 Text('Valid'),
                               ],
@@ -253,7 +261,8 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
                                   size: 16,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(error.message, style: const TextStyle(fontSize: 12)),
+                                Text(error.message,
+                                    style: const TextStyle(fontSize: 12)),
                               ],
                             ),
                     ),
@@ -268,8 +277,12 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
   }
 
   Widget _buildValidationErrors() {
-    final errors = _validationErrors.where((e) => e.type == ValidationErrorType.error).toList();
-    final warnings = _validationErrors.where((e) => e.type == ValidationErrorType.warning).toList();
+    final errors = _validationErrors
+        .where((e) => e.type == ValidationErrorType.error)
+        .toList();
+    final warnings = _validationErrors
+        .where((e) => e.type == ValidationErrorType.warning)
+        .toList();
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -294,7 +307,9 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
                 '${errors.length} error(s), ${warnings.length} warning(s)',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: errors.isNotEmpty ? Colors.red.shade900 : Colors.orange.shade900,
+                  color: errors.isNotEmpty
+                      ? Colors.red.shade900
+                      : Colors.orange.shade900,
                 ),
               ),
             ],
@@ -324,7 +339,8 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: widget.acceptedFormats.map((e) => e.replaceAll('.', '')).toList(),
+      allowedExtensions:
+          widget.acceptedFormats.map((e) => e.replaceAll('.', '')).toList(),
     );
 
     if (result != null && result.files.single.path != null) {
@@ -332,7 +348,9 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
       if (file.lengthSync() > widget.maxFileSizeMB * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('File size exceeds ${widget.maxFileSizeMB}MB limit')),
+            SnackBar(
+                content:
+                    Text('File size exceeds ${widget.maxFileSizeMB}MB limit')),
           );
         }
         return;
@@ -358,7 +376,7 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
     try {
       // Parse file
       final parsedData = await FileParserService.parseFile(_selectedFile!);
-      
+
       // Define schema for backtesting input
       final schema = <String, FieldSchema>{
         'start_date': FieldSchema(type: FieldType.date, required: true),
@@ -490,7 +508,6 @@ class _InputSheetUploadState extends State<InputSheetUpload> {
     return 'unknown';
   }
 }
-
 
 class _TemplateTile extends StatelessWidget {
   const _TemplateTile({

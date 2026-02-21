@@ -14,16 +14,24 @@ class FarmersByCategoryPage extends StatefulWidget {
   State<FarmersByCategoryPage> createState() => _FarmersByCategoryPageState();
 }
 
-enum SortOption { nameAsc, nameDesc, dateAsc, dateDesc, villageAsc, villageDesc }
+enum SortOption {
+  nameAsc,
+  nameDesc,
+  dateAsc,
+  dateDesc,
+  villageAsc,
+  villageDesc
+}
 
-class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with SingleTickerProviderStateMixin {
+class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _searchQuery = '';
   SortOption _sortOption = SortOption.nameAsc;
   bool _isSelectionMode = false;
   final Set<String> _selectedFarmerIds = {};
   final Map<FarmerClassification, List<FarmerEntity>> _farmersByCategory = {};
-  
+
   // Filters
   String? _selectedVillage;
   String? _selectedCropType;
@@ -43,19 +51,27 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
     // TODO: Load from repository
     // For now, simulate data
     setState(() {
-      _farmersByCategory[FarmerClassification.regular] = _generateMockFarmers(FarmerClassification.regular, 15);
-      _farmersByCategory[FarmerClassification.sleepy] = _generateMockFarmers(FarmerClassification.sleepy, 8);
-      _farmersByCategory[FarmerClassification.blacklist] = _generateMockFarmers(FarmerClassification.blacklist, 5);
-      _farmersByCategory[FarmerClassification.reminder] = _generateMockFarmers(FarmerClassification.reminder, 12);
-      
+      _farmersByCategory[FarmerClassification.regular] =
+          _generateMockFarmers(FarmerClassification.regular, 15);
+      _farmersByCategory[FarmerClassification.sleepy] =
+          _generateMockFarmers(FarmerClassification.sleepy, 8);
+      _farmersByCategory[FarmerClassification.blacklist] =
+          _generateMockFarmers(FarmerClassification.blacklist, 5);
+      _farmersByCategory[FarmerClassification.reminder] =
+          _generateMockFarmers(FarmerClassification.reminder, 12);
+
       // Extract unique villages and crop types
-      final allFarmers = _farmersByCategory.values.expand((list) => list).toList();
-      _availableVillages.addAll(allFarmers.map((f) => f.village).toSet().toList()..sort());
-      _availableCropTypes.addAll(allFarmers.map((f) => f.assignedCropTypeId).toSet().toList()..sort());
+      final allFarmers =
+          _farmersByCategory.values.expand((list) => list).toList();
+      _availableVillages
+          .addAll(allFarmers.map((f) => f.village).toSet().toList()..sort());
+      _availableCropTypes.addAll(
+          allFarmers.map((f) => f.assignedCropTypeId).toSet().toList()..sort());
     });
   }
 
-  List<FarmerEntity> _generateMockFarmers(FarmerClassification category, int count) {
+  List<FarmerEntity> _generateMockFarmers(
+      FarmerClassification category, int count) {
     return List.generate(count, (index) {
       return FarmerEntity(
         id: 'FRM-${category.name}-${index + 1}',
@@ -72,9 +88,10 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
     });
   }
 
-  List<FarmerEntity> _getFilteredAndSortedFarmers(FarmerClassification category) {
+  List<FarmerEntity> _getFilteredAndSortedFarmers(
+      FarmerClassification category) {
     var farmers = List<FarmerEntity>.from(_farmersByCategory[category] ?? []);
-    
+
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
@@ -85,26 +102,30 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
             f.id.toLowerCase().contains(query);
       }).toList();
     }
-    
+
     // Apply village filter
     if (_selectedVillage != null) {
       farmers = farmers.where((f) => f.village == _selectedVillage).toList();
     }
-    
+
     // Apply crop type filter
     if (_selectedCropType != null) {
-      farmers = farmers.where((f) => f.assignedCropTypeId == _selectedCropType).toList();
+      farmers = farmers
+          .where((f) => f.assignedCropTypeId == _selectedCropType)
+          .toList();
     }
-    
+
     // Apply date range filter
     if (_dateRange != null) {
       farmers = farmers.where((f) {
         if (f.lastContactAt == null) return false;
-        return f.lastContactAt!.isAfter(_dateRange!.start.subtract(const Duration(days: 1))) &&
-               f.lastContactAt!.isBefore(_dateRange!.end.add(const Duration(days: 1)));
+        return f.lastContactAt!
+                .isAfter(_dateRange!.start.subtract(const Duration(days: 1))) &&
+            f.lastContactAt!
+                .isBefore(_dateRange!.end.add(const Duration(days: 1)));
       }).toList();
     }
-    
+
     // Apply sorting
     farmers.sort((a, b) {
       switch (_sortOption) {
@@ -126,7 +147,7 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
           return b.village.compareTo(a.village);
       }
     });
-    
+
     return farmers;
   }
 
@@ -170,34 +191,45 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
     try {
       // Create CSV content
       final csvData = [
-        ['ID', 'Name', 'Contact', 'Village', 'Plots', 'Area/Plot', 'Crop Type', 'Last Contact', 'Classification'],
+        [
+          'ID',
+          'Name',
+          'Contact',
+          'Village',
+          'Plots',
+          'Area/Plot',
+          'Crop Type',
+          'Last Contact',
+          'Classification'
+        ],
         ...farmers.map((f) => [
-          f.id,
-          f.fullName,
-          f.contactNumber,
-          f.village,
-          f.plotCount.toString(),
-          f.areaPerPlot.toStringAsFixed(2),
-          f.assignedCropTypeId,
-          f.lastContactAt?.toString().split(' ')[0] ?? 'N/A',
-          f.classification.name.toUpperCase(),
-        ]),
+              f.id,
+              f.fullName,
+              f.contactNumber,
+              f.village,
+              f.plotCount.toString(),
+              f.areaPerPlot.toStringAsFixed(2),
+              f.assignedCropTypeId,
+              f.lastContactAt?.toString().split(' ')[0] ?? 'N/A',
+              f.classification.name.toUpperCase(),
+            ]),
       ];
 
       final csvString = const ListToCsvConverter().convert(csvData);
-      
+
       // Save to temporary file
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/farmers_${category.name}_${DateTime.now().millisecondsSinceEpoch}.csv');
+      final file = File(
+          '${directory.path}/farmers_${category.name}_${DateTime.now().millisecondsSinceEpoch}.csv');
       await file.writeAsString(csvString);
-      
+
       // Share file
       await Share.shareXFiles(
         [XFile(file.path)],
         text: 'Farmers - ${category.name.toUpperCase()} Category',
         subject: 'Farmers Export',
       );
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Exported ${farmers.length} farmers to CSV')),
@@ -216,7 +248,7 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
     final selectedFarmers = _getFilteredAndSortedFarmers(category)
         .where((f) => _selectedFarmerIds.contains(f.id))
         .toList();
-    
+
     if (selectedFarmers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No farmers selected')),
@@ -240,7 +272,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
             ListTile(
               leading: const Icon(Icons.category),
               title: const Text('Change Classification'),
-              subtitle: const Text('Update classification for selected farmers'),
+              subtitle:
+                  const Text('Update classification for selected farmers'),
               onTap: () {
                 Navigator.pop(context);
                 _showClassificationChangeDialog(selectedFarmers);
@@ -267,7 +300,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
             ListTile(
               leading: const Icon(Icons.delete_outline),
               title: const Text('Delete Selected'),
-              subtitle: const Text('Remove selected farmers (requires confirmation)'),
+              subtitle:
+                  const Text('Remove selected farmers (requires confirmation)'),
               onTap: () {
                 Navigator.pop(context);
                 _showDeleteConfirmation(selectedFarmers);
@@ -304,7 +338,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
                   title: Text(classification.name.toUpperCase()),
                   value: classification,
                   groupValue: newClassification,
-                  onChanged: (value) => setDialogState(() => newClassification = value),
+                  onChanged: (value) =>
+                      setDialogState(() => newClassification = value),
                 );
               }),
             ],
@@ -321,7 +356,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
                       Navigator.pop(context);
                       // TODO: Implement classification change
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Classification changed to ${newClassification!.name} for ${farmers.length} farmers')),
+                        SnackBar(
+                            content: Text(
+                                'Classification changed to ${newClassification!.name} for ${farmers.length} farmers')),
                       );
                       _deselectAll();
                     },
@@ -336,7 +373,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
   void _showContactLogDialog(List<FarmerEntity> farmers) {
     // TODO: Implement contact log dialog
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Contact log for ${farmers.length} farmers (to be implemented)')),
+      SnackBar(
+          content: Text(
+              'Contact log for ${farmers.length} farmers (to be implemented)')),
     );
     _deselectAll();
   }
@@ -344,27 +383,39 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
   Future<void> _exportSelectedFarmers(List<FarmerEntity> farmers) async {
     try {
       final csvData = [
-        ['ID', 'Name', 'Contact', 'Village', 'Plots', 'Area/Plot', 'Crop Type', 'Last Contact', 'Classification'],
+        [
+          'ID',
+          'Name',
+          'Contact',
+          'Village',
+          'Plots',
+          'Area/Plot',
+          'Crop Type',
+          'Last Contact',
+          'Classification'
+        ],
         ...farmers.map((f) => [
-          f.id,
-          f.fullName,
-          f.contactNumber,
-          f.village,
-          f.plotCount.toString(),
-          f.areaPerPlot.toStringAsFixed(2),
-          f.assignedCropTypeId,
-          f.lastContactAt?.toString().split(' ')[0] ?? 'N/A',
-          f.classification.name.toUpperCase(),
-        ]),
+              f.id,
+              f.fullName,
+              f.contactNumber,
+              f.village,
+              f.plotCount.toString(),
+              f.areaPerPlot.toStringAsFixed(2),
+              f.assignedCropTypeId,
+              f.lastContactAt?.toString().split(' ')[0] ?? 'N/A',
+              f.classification.name.toUpperCase(),
+            ]),
       ];
 
       final csvString = const ListToCsvConverter().convert(csvData);
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/farmers_selected_${DateTime.now().millisecondsSinceEpoch}.csv');
+      final file = File(
+          '${directory.path}/farmers_selected_${DateTime.now().millisecondsSinceEpoch}.csv');
       await file.writeAsString(csvString);
-      
-      await Share.shareXFiles([XFile(file.path)], text: 'Selected Farmers Export');
-      
+
+      await Share.shareXFiles([XFile(file.path)],
+          text: 'Selected Farmers Export');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Exported ${farmers.length} farmers to CSV')),
@@ -385,7 +436,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Farmers?'),
-        content: Text('Are you sure you want to delete ${farmers.length} farmers? This action cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete ${farmers.length} farmers? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -443,7 +495,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
             ),
           ] else ...[
             IconButton(
-              icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
+              icon: Icon(
+                  _showFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
               onPressed: () => setState(() => _showFilters = !_showFilters),
               tooltip: 'Toggle Filters',
             ),
@@ -452,30 +505,42 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
               tooltip: 'Sort Options',
               onSelected: (value) {
                 setState(() {
-                  _sortOption = SortOption.values.firstWhere((e) => e.name == value);
+                  _sortOption =
+                      SortOption.values.firstWhere((e) => e.name == value);
                 });
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'nameAsc', child: Text('Name (A-Z)')),
-                const PopupMenuItem(value: 'nameDesc', child: Text('Name (Z-A)')),
-                const PopupMenuItem(value: 'dateAsc', child: Text('Last Contact (Oldest)')),
-                const PopupMenuItem(value: 'dateDesc', child: Text('Last Contact (Newest)')),
-                const PopupMenuItem(value: 'villageAsc', child: Text('Village (A-Z)')),
-                const PopupMenuItem(value: 'villageDesc', child: Text('Village (Z-A)')),
+                const PopupMenuItem(
+                    value: 'nameAsc', child: Text('Name (A-Z)')),
+                const PopupMenuItem(
+                    value: 'nameDesc', child: Text('Name (Z-A)')),
+                const PopupMenuItem(
+                    value: 'dateAsc', child: Text('Last Contact (Oldest)')),
+                const PopupMenuItem(
+                    value: 'dateDesc', child: Text('Last Contact (Newest)')),
+                const PopupMenuItem(
+                    value: 'villageAsc', child: Text('Village (A-Z)')),
+                const PopupMenuItem(
+                    value: 'villageDesc', child: Text('Village (Z-A)')),
               ],
             ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.download),
               tooltip: 'Export',
               onSelected: (value) {
-                final category = FarmerClassification.values.firstWhere((e) => e.name == value);
+                final category = FarmerClassification.values
+                    .firstWhere((e) => e.name == value);
                 _exportCategory(category);
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'regular', child: Text('Export Regular')),
-                const PopupMenuItem(value: 'sleepy', child: Text('Export Sleepy')),
-                const PopupMenuItem(value: 'blacklist', child: Text('Export Blacklist')),
-                const PopupMenuItem(value: 'reminder', child: Text('Export Reminder')),
+                const PopupMenuItem(
+                    value: 'regular', child: Text('Export Regular')),
+                const PopupMenuItem(
+                    value: 'sleepy', child: Text('Export Sleepy')),
+                const PopupMenuItem(
+                    value: 'blacklist', child: Text('Export Blacklist')),
+                const PopupMenuItem(
+                    value: 'reminder', child: Text('Export Reminder')),
               ],
             ),
           ],
@@ -486,26 +551,37 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
           tabs: [
             _CategoryTab(
               label: 'Regular',
-              count: _getFilteredAndSortedFarmers(FarmerClassification.regular).length,
-              total: _farmersByCategory[FarmerClassification.regular]?.length ?? 0,
+              count: _getFilteredAndSortedFarmers(FarmerClassification.regular)
+                  .length,
+              total:
+                  _farmersByCategory[FarmerClassification.regular]?.length ?? 0,
               color: Colors.green,
             ),
             _CategoryTab(
               label: 'Sleepy',
-              count: _getFilteredAndSortedFarmers(FarmerClassification.sleepy).length,
-              total: _farmersByCategory[FarmerClassification.sleepy]?.length ?? 0,
+              count: _getFilteredAndSortedFarmers(FarmerClassification.sleepy)
+                  .length,
+              total:
+                  _farmersByCategory[FarmerClassification.sleepy]?.length ?? 0,
               color: Colors.orange,
             ),
             _CategoryTab(
               label: 'Blacklist',
-              count: _getFilteredAndSortedFarmers(FarmerClassification.blacklist).length,
-              total: _farmersByCategory[FarmerClassification.blacklist]?.length ?? 0,
+              count:
+                  _getFilteredAndSortedFarmers(FarmerClassification.blacklist)
+                      .length,
+              total:
+                  _farmersByCategory[FarmerClassification.blacklist]?.length ??
+                      0,
               color: Colors.red,
             ),
             _CategoryTab(
               label: 'Reminder',
-              count: _getFilteredAndSortedFarmers(FarmerClassification.reminder).length,
-              total: _farmersByCategory[FarmerClassification.reminder]?.length ?? 0,
+              count: _getFilteredAndSortedFarmers(FarmerClassification.reminder)
+                  .length,
+              total:
+                  _farmersByCategory[FarmerClassification.reminder]?.length ??
+                      0,
               color: Colors.blue,
             ),
           ],
@@ -521,7 +597,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
               children: [
                 _CategoryView(
                   category: FarmerClassification.regular,
-                  farmers: _getFilteredAndSortedFarmers(FarmerClassification.regular),
+                  farmers: _getFilteredAndSortedFarmers(
+                      FarmerClassification.regular),
                   color: Colors.green,
                   isSelectionMode: _isSelectionMode,
                   selectedIds: _selectedFarmerIds,
@@ -531,7 +608,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
                 ),
                 _CategoryView(
                   category: FarmerClassification.sleepy,
-                  farmers: _getFilteredAndSortedFarmers(FarmerClassification.sleepy),
+                  farmers:
+                      _getFilteredAndSortedFarmers(FarmerClassification.sleepy),
                   color: Colors.orange,
                   isSelectionMode: _isSelectionMode,
                   selectedIds: _selectedFarmerIds,
@@ -541,7 +619,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
                 ),
                 _CategoryView(
                   category: FarmerClassification.blacklist,
-                  farmers: _getFilteredAndSortedFarmers(FarmerClassification.blacklist),
+                  farmers: _getFilteredAndSortedFarmers(
+                      FarmerClassification.blacklist),
                   color: Colors.red,
                   isSelectionMode: _isSelectionMode,
                   selectedIds: _selectedFarmerIds,
@@ -551,7 +630,8 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
                 ),
                 _CategoryView(
                   category: FarmerClassification.reminder,
-                  farmers: _getFilteredAndSortedFarmers(FarmerClassification.reminder),
+                  farmers: _getFilteredAndSortedFarmers(
+                      FarmerClassification.reminder),
                   color: Colors.blue,
                   isSelectionMode: _isSelectionMode,
                   selectedIds: _selectedFarmerIds,
@@ -622,7 +702,9 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
               const SizedBox(width: 8),
               Text('Filters', style: Theme.of(context).textTheme.titleSmall),
               const Spacer(),
-              if (_selectedVillage != null || _selectedCropType != null || _dateRange != null)
+              if (_selectedVillage != null ||
+                  _selectedCropType != null ||
+                  _dateRange != null)
                 TextButton(
                   onPressed: () {
                     setState(() {
@@ -641,31 +723,38 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage> with Sing
             runSpacing: 12,
             children: [
               // Village filter
-              DropdownButton<String>(
+              DropdownButtonFormField<String>(
                 value: _selectedVillage,
                 hint: const Text('Village'),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('All Villages')),
-                  ..._availableVillages.map((v) => DropdownMenuItem(value: v, child: Text(v))),
+                  const DropdownMenuItem(
+                      value: null, child: Text('All Villages')),
+                  ..._availableVillages
+                      .map((v) => DropdownMenuItem(value: v, child: Text(v))),
                 ],
                 onChanged: (value) => setState(() => _selectedVillage = value),
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
               // Crop type filter
-              DropdownButton<String>(
+              DropdownButtonFormField<String>(
                 value: _selectedCropType,
                 hint: const Text('Crop Type'),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('All Crops')),
-                  ..._availableCropTypes.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                  ..._availableCropTypes
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c))),
                 ],
                 onChanged: (value) => setState(() => _selectedCropType = value),
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
               // Date range filter
@@ -856,7 +945,8 @@ class _CategoryView extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(20),
@@ -915,7 +1005,8 @@ class _CategoryView extends StatelessWidget {
                   } else {
                     // TODO: Navigate to farmer details
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('View ${farmers[index].fullName}')),
+                      SnackBar(
+                          content: Text('View ${farmers[index].fullName}')),
                     );
                   }
                 },
@@ -992,23 +1083,26 @@ class _FarmerCard extends StatelessWidget {
                       children: [
                         Text(
                           farmer.fullName,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           farmer.id,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey.shade600,
-                                fontFamily: 'monospace',
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey.shade600,
+                                    fontFamily: 'monospace',
+                                  ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
@@ -1043,7 +1137,8 @@ class _FarmerCard extends StatelessWidget {
                   ),
                   _InfoChip(
                     icon: Icons.square_foot,
-                    label: '${farmer.areaPerPlot.toStringAsFixed(1)} acres/plot',
+                    label:
+                        '${farmer.areaPerPlot.toStringAsFixed(1)} acres/plot',
                   ),
                 ],
               ),
@@ -1051,7 +1146,8 @@ class _FarmerCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                    Icon(Icons.access_time,
+                        size: 14, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
                       'Last contact: ${_formatDate(farmer.lastContactAt!)}',
