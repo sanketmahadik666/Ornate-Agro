@@ -15,6 +15,11 @@ import 'package:ornate_agro/features/farmers/data/repositories/farmer_repository
 import 'package:ornate_agro/features/distribution/presentation/bloc/distribution_bloc.dart';
 import 'package:ornate_agro/features/distribution/data/datasources/distribution_local_datasource.dart';
 import 'package:ornate_agro/features/distribution/data/repositories/distribution_repository_impl.dart';
+import 'package:ornate_agro/features/crop_config/presentation/bloc/crop_type_bloc.dart';
+import 'package:ornate_agro/features/crop_config/data/datasources/crop_type_local_datasource.dart';
+import 'package:ornate_agro/features/crop_config/data/repositories/crop_type_repository_impl.dart';
+import 'package:ornate_agro/core/services/classification_service.dart';
+import 'package:provider/provider.dart';
 
 class OrnateAgroApp extends StatelessWidget {
   const OrnateAgroApp({required this.database, super.key});
@@ -44,19 +49,36 @@ class OrnateAgroApp extends StatelessWidget {
         DistributionRepositoryImpl(distributionLocalDataSource);
     final distributionBloc = DistributionBloc(distributionRepository);
 
-    return MultiBlocProvider(
+    // Crop config dependencies (Req 8)
+    final cropTypeLocalDataSource = CropTypeLocalDataSource(database);
+    final cropTypeRepository = CropTypeRepositoryImpl(cropTypeLocalDataSource);
+    final cropTypeBloc = CropTypeBloc(cropTypeRepository);
+
+    // Classification service (Req 5)
+    final classificationService = ClassificationService(
+      distributionDataSource: distributionLocalDataSource,
+      farmerDataSource: farmerLocalDataSource,
+    );
+
+    return MultiProvider(
       providers: [
-        BlocProvider<AuthBloc>.value(value: authBloc),
-        BlocProvider<FarmerBloc>.value(value: farmerBloc),
-        BlocProvider<DistributionBloc>.value(value: distributionBloc),
+        Provider<ClassificationService>.value(value: classificationService),
       ],
-      child: SessionManagerWidget(
-        child: MaterialApp(
-          title: 'Ornate Agro',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          initialRoute: AppRouter.login,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>.value(value: authBloc),
+          BlocProvider<FarmerBloc>.value(value: farmerBloc),
+          BlocProvider<DistributionBloc>.value(value: distributionBloc),
+          BlocProvider<CropTypeBloc>.value(value: cropTypeBloc),
+        ],
+        child: SessionManagerWidget(
+          child: MaterialApp(
+            title: 'Ornate Agro',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            initialRoute: AppRouter.login,
+          ),
         ),
       ),
     );
