@@ -7,6 +7,7 @@ import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/distribution/presentation/pages/distribution_list_page.dart';
 import '../../features/farmers/presentation/pages/farmers_list_page.dart';
 import '../../features/farmers/presentation/pages/farmers_by_category_page.dart';
+import '../../features/farmers/presentation/pages/farmer_form_page.dart';
 import '../../features/reports/presentation/pages/reports_page.dart';
 import '../../features/yield_tracking/presentation/pages/yield_tracking_page.dart';
 

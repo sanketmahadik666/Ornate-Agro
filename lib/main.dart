@@ -5,6 +5,6 @@ import 'app/bootstrap.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await bootstrap();
-  runApp(const OrnateAgroApp());
+  final database = await bootstrap();
+  runApp(OrnateAgroApp(database: database));
 }
