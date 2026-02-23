@@ -32,6 +32,13 @@ abstract class DistributionRepository {
     required String staffId,
   });
 
+  /// Force-fulfill a distribution (authority override — Clinchit).
+  /// Sets status to fulfilled regardless of outstanding quantity.
+  Future<DistributionEntity> forceFullfill({
+    required String id,
+    required String authorityId,
+  });
+
   /// Get distributions matching the given filters.
   Future<List<DistributionEntity>> getFilteredDistributions({
     DateTime? startDate,

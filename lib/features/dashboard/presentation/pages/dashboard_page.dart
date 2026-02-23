@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/routes/app_router.dart';
+import '../../../../core/services/demo_clock.dart';
+import '../../../../core/widgets/demo_mode_overlay.dart';
 import '../../../../shared/domain/entities/farmer_entity.dart';
 import '../../../../shared/domain/entities/distribution_entity.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -56,34 +59,39 @@ class _DashboardPageState extends State<DashboardPage> {
                   final farmers = farmerState.farmers ?? [];
                   final distributions = distState.distributions ?? [];
 
-                  return RefreshIndicator(
-                    onRefresh: () async {
-                      context
-                          .read<FarmerBloc>()
-                          .add(const FarmerLoadRequested());
-                      context
-                          .read<DistributionBloc>()
-                          .add(const DistributionLoadRequested());
-                    },
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildGreeting(authState.user?.username ?? 'User'),
-                        const SizedBox(height: 24),
-                        _buildKPISection(farmers, distributions),
-                        const SizedBox(height: 24),
-                        _buildClassificationBreakdown(farmers),
-                        const SizedBox(height: 24),
-                        _buildAlertsSection(farmers, distributions),
-                        const SizedBox(height: 32),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        Text('Quick Actions',
-                            style: Theme.of(context).textTheme.titleLarge),
-                        const SizedBox(height: 16),
-                        _buildQuickActions(context),
-                      ],
-                    ),
+                  return Stack(
+                    children: [
+                      RefreshIndicator(
+                        onRefresh: () async {
+                          context
+                              .read<FarmerBloc>()
+                              .add(const FarmerLoadRequested());
+                          context
+                              .read<DistributionBloc>()
+                              .add(const DistributionLoadRequested());
+                        },
+                        child: ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            _buildGreeting(authState.user?.username ?? 'User'),
+                            const SizedBox(height: 24),
+                            _buildKPISection(farmers, distributions),
+                            const SizedBox(height: 24),
+                            _buildClassificationBreakdown(farmers),
+                            const SizedBox(height: 24),
+                            _buildAlertsSection(farmers, distributions),
+                            const SizedBox(height: 32),
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            Text('Quick Actions',
+                                style: Theme.of(context).textTheme.titleLarge),
+                            const SizedBox(height: 16),
+                            _buildQuickActions(context),
+                          ],
+                        ),
+                      ),
+                      const DemoModeOverlay(),
+                    ],
                   );
                 },
               );
@@ -211,7 +219,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildAlertsSection(
       List<FarmerEntity> farmers, List<DistributionEntity> distributions) {
-    final now = DateTime.now();
+    final now = context.read<DemoClock>().now();
 
     // 1. Distributions overdue
     final overdueDistributions = distributions.where((d) {

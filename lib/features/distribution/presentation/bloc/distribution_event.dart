@@ -87,3 +87,16 @@ final class DistributionYieldReturnRequested extends DistributionEvent {
   @override
   List<Object?> get props => [id, quantityReturned, staffId];
 }
+
+final class DistributionForceFullfillRequested extends DistributionEvent {
+  const DistributionForceFullfillRequested({
+    required this.id,
+    required this.authorityId,
+  });
+
+  final String id;
+  final String authorityId;
+
+  @override
+  List<Object?> get props => [id, authorityId];
+}

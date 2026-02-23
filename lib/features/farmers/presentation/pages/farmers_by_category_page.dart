@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../shared/domain/entities/farmer_entity.dart';
 import '../../../../shared/domain/entities/contact_log_entity.dart';
 import '../../../../core/services/classification_service.dart';
+import '../../../../core/services/demo_clock.dart';
 import '../../../../core/routes/app_router.dart';
 import '../bloc/farmer_bloc.dart';
 import '../../../contact_log/presentation/bloc/contact_log_bloc.dart';
@@ -1347,7 +1348,7 @@ class _FarmerCard extends StatelessWidget {
                         size: 14, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
-                      'Last contact: ${_formatDate(farmer.lastContactAt!)}',
+                      'Last contact: ${_formatDate(context, farmer.lastContactAt!)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey.shade600,
                           ),
@@ -1362,8 +1363,8 @@ class _FarmerCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
+  String _formatDate(BuildContext context, DateTime date) {
+    final now = context.read<DemoClock>().now();
     final difference = now.difference(date);
     if (difference.inDays == 0) {
       return 'Today';

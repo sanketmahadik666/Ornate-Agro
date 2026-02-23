@@ -109,6 +109,29 @@ class DistributionRepositoryImpl implements DistributionRepository {
   }
 
   @override
+  Future<DistributionEntity> forceFullfill({
+    required String id,
+    required String authorityId,
+  }) async {
+    final existing = await _localDataSource.getDistributionById(id);
+    if (existing == null) {
+      throw DistributionNotFoundException(id);
+    }
+
+    final updated = existing.copyWith(
+      quantityReturned: existing.quantityDistributed,
+      status: DistributionStatus.fulfilled,
+      actualReturnDate: DateTime.now(),
+      updatedAt: DateTime.now(),
+      amendmentReason: 'Force-fulfilled (Clinchit) by authority',
+      amendedByAuthorityId: authorityId,
+    );
+
+    await _localDataSource.updateDistribution(updated);
+    return updated;
+  }
+
+  @override
   Future<List<DistributionEntity>> getFilteredDistributions({
     DateTime? startDate,
     DateTime? endDate,

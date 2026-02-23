@@ -3,6 +3,7 @@ import '../../shared/domain/entities/distribution_entity.dart';
 import '../../features/distribution/data/datasources/distribution_local_datasource.dart';
 import '../../features/farmers/data/datasources/farmer_local_datasource.dart';
 import '../constants/app_constants.dart';
+import 'demo_clock.dart';
 
 /// Req 5: Automatic farmer classification engine.
 ///
@@ -18,14 +19,21 @@ class ClassificationService {
   ClassificationService({
     required this.distributionDataSource,
     required this.farmerDataSource,
+    this.demoClock,
   });
 
   final DistributionLocalDataSource distributionDataSource;
   final FarmerLocalDataSource farmerDataSource;
+  DemoClock? demoClock;
 
   /// Compute and apply classification for a single farmer.
   /// Returns the new classification.
   Future<FarmerClassification> classifyFarmer(FarmerEntity farmer) async {
+    // Blacklisted farmers stay blacklisted (only authority can change).
+    if (farmer.classification == FarmerClassification.blacklist) {
+      return FarmerClassification.blacklist;
+    }
+
     final distributions =
         await distributionDataSource.getDistributionsByFarmer(farmer.id);
 
@@ -34,10 +42,30 @@ class ClassificationService {
       return FarmerClassification.regular;
     }
 
-    final now = DateTime.now();
+    final now = demoClock?.now() ?? DateTime.now();
+
+    // Auto-update distribution statuses based on time
+    for (final d in distributions) {
+      if (d.status != DistributionStatus.fulfilled &&
+          now.isAfter(d.expectedYieldDueDate)) {
+        // Past due date — mark as overdue if not already
+        if (d.status != DistributionStatus.overdue &&
+            d.status != DistributionStatus.partiallyFulfilled) {
+          final updated = d.copyWith(
+            status: DistributionStatus.overdue,
+            updatedAt: DateTime.now(),
+          );
+          await distributionDataSource.updateDistribution(updated);
+        }
+      }
+    }
+
+    // Re-fetch after potential updates
+    final refreshed =
+        await distributionDataSource.getDistributionsByFarmer(farmer.id);
 
     // Check if ALL distributions' growing periods have elapsed
-    final allPlotsComplete = distributions.every(
+    final allPlotsComplete = refreshed.every(
       (d) => now.isAfter(d.expectedYieldDueDate),
     );
 
@@ -47,7 +75,7 @@ class ClassificationService {
     }
 
     // Check yield return status
-    final allYieldReturned = distributions.every(
+    final allYieldReturned = refreshed.every(
       (d) => d.status == DistributionStatus.fulfilled,
     );
 
@@ -62,16 +90,22 @@ class ClassificationService {
         return FarmerClassification.sleepy;
       }
     } else {
-      // Yield NOT fully returned
-      if (isInContact) {
-        return FarmerClassification.reminder;
-      } else {
-        // Note: we classify as reminder here, NOT blacklist.
-        // Blacklist requires explicit authority action.
-        // But if they have zero yield AND no contact, mark as reminder
-        // so authority can review and decide.
-        return FarmerClassification.reminder;
+      // Yield NOT fully returned — start as Reminder
+      if (!isInContact) {
+        // Check how long since the earliest plot completed (due date passed)
+        final earliestDueDate = refreshed
+            .where((d) => d.status != DistributionStatus.fulfilled)
+            .map((d) => d.expectedYieldDueDate)
+            .reduce((a, b) => a.isBefore(b) ? a : b);
+
+        final daysSinceDue = now.difference(earliestDueDate).inDays;
+
+        // If 5+ days past due with no contact → auto-escalate to Blacklist
+        if (daysSinceDue >= AppConstants.reminderEscalationDays) {
+          return FarmerClassification.blacklist;
+        }
       }
+      return FarmerClassification.reminder;
     }
   }
 
