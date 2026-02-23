@@ -15,6 +15,7 @@ class DistributionBloc extends Bloc<DistributionEvent, DistributionState> {
     on<DistributionFilterRequested>(_onFilterRequested);
     on<DistributionLoadByFarmerRequested>(_onLoadByFarmerRequested);
     on<DistributionYieldReturnRequested>(_onYieldReturnRequested);
+    on<DistributionForceFullfillRequested>(_onForceFullfillRequested);
   }
 
   final DistributionRepository _repository;
@@ -121,6 +122,26 @@ class DistributionBloc extends Bloc<DistributionEvent, DistributionState> {
       emit(const DistributionState.failure('Distribution not found'));
     } catch (e) {
       emit(DistributionState.failure('Failed to record yield return: $e'));
+    }
+  }
+
+  Future<void> _onForceFullfillRequested(
+    DistributionForceFullfillRequested event,
+    Emitter<DistributionState> emit,
+  ) async {
+    emit(const DistributionState.loading());
+    try {
+      await _repository.forceFullfill(
+        id: event.id,
+        authorityId: event.authorityId,
+      );
+      emit(const DistributionState.success(
+          'Distribution force-fulfilled (Clinchit)'));
+      add(const DistributionLoadRequested());
+    } on DistributionNotFoundException {
+      emit(const DistributionState.failure('Distribution not found'));
+    } catch (e) {
+      emit(DistributionState.failure('Failed to force-fulfill: $e'));
     }
   }
 }

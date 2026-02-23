@@ -255,6 +255,39 @@ class _YieldTrackingPageState extends State<YieldTrackingPage>
                           label: const Text('Record Return'),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          // Clinchit (force-fulfill) button
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _showClinchitDialog(context, d, farmerName),
+                              icon: const Icon(Icons.check_circle,
+                                  color: Colors.green),
+                              label: const Text('Clinchit',
+                                  style: TextStyle(color: Colors.green)),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.green),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Blacklist authority button
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _showBlacklistDialog(context, d, farmerName),
+                              icon: const Icon(Icons.block, color: Colors.red),
+                              label: const Text('Blacklist',
+                                  style: TextStyle(color: Colors.red)),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ]
                   ],
                 ),
@@ -377,6 +410,118 @@ class _YieldTrackingPageState extends State<YieldTrackingPage>
           ),
         );
       },
+    );
+  }
+
+  /// Clinchit — authority force-fulfills a distribution.
+  void _showClinchitDialog(BuildContext context,
+      DistributionEntity distribution, String farmerName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+        title: const Text('Clinchit – Force Fulfill'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Farmer: $farmerName'),
+            Text('Seed: ${distribution.seedType}'),
+            Text(
+                'Outstanding: ${distribution.outstandingQuantity.toStringAsFixed(1)} qty'),
+            const SizedBox(height: 12),
+            const Text(
+              'This will mark the distribution as fully fulfilled, '
+              'writing off the outstanding quantity. '
+              'This action requires authority approval.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<DistributionBloc>().add(
+                    DistributionForceFullfillRequested(
+                      id: distribution.id,
+                      authorityId: 'AUTHORITY_001',
+                    ),
+                  );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        '$farmerName distribution force-fulfilled (Clinchit)')),
+              );
+            },
+            child: const Text('Confirm Clinchit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Blacklist — authority moves farmer to blacklist.
+  void _showBlacklistDialog(BuildContext context,
+      DistributionEntity distribution, String farmerName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.block, color: Colors.red, size: 48),
+        title: const Text('Move to Blacklist'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Farmer: $farmerName'),
+            Text(
+                'Outstanding: ${distribution.outstandingQuantity.toStringAsFixed(1)} qty'),
+            const SizedBox(height: 12),
+            const Text(
+              'This will blacklist the farmer. Blacklisted farmers '
+              'will not be auto-reclassified by the system. '
+              'Only an authority can reverse this action.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Get farmers from the farmer bloc state
+              final farmerState = context.read<FarmerBloc>().state;
+              final farmers = farmerState.farmers ?? [];
+              final farmer =
+                  farmers.where((f) => f.id == distribution.farmerId);
+              if (farmer.isNotEmpty) {
+                context.read<FarmerBloc>().add(
+                      FarmerUpdateRequested(
+                        farmer.first.copyWith(
+                          classification: FarmerClassification.blacklist,
+                          updatedAt: DateTime.now(),
+                        ),
+                      ),
+                    );
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$farmerName moved to Blacklist')),
+              );
+            },
+            child: const Text('Confirm Blacklist'),
+          ),
+        ],
+      ),
     );
   }
 }
