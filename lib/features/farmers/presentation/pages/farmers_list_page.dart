@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:excel/excel.dart' as excel_pkg;
+import 'package:csv/csv.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/routes/app_router.dart';
 import '../../../../shared/domain/entities/farmer_entity.dart';
+import '../../../../core/utils/id_generator.dart';
 import '../bloc/farmer_bloc.dart';
 import 'farmer_form_page.dart';
 
@@ -68,6 +74,11 @@ class _FarmersListPageState extends State<FarmersListPage> {
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_upload),
+            onPressed: _importFromExcel,
+            tooltip: 'Import Farmers',
           ),
           IconButton(
             icon: const Icon(Icons.category),
@@ -143,12 +154,20 @@ class _FarmersListPageState extends State<FarmersListPage> {
                           const SizedBox(height: 8),
                           Text(
                             _searchQuery.isEmpty
-                                ? 'Tap + to add your first farmer'
+                                ? 'Tap + to add your first farmer manually or import from file'
                                 : 'Try a different search term',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: Colors.grey.shade500,
                                 ),
                           ),
+                          if (_searchQuery.isEmpty) ...[
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              onPressed: _importFromExcel,
+                              icon: const Icon(Icons.upload_file),
+                              label: const Text('Import Excel/CSV'),
+                            ),
+                          ],
                         ],
                       ),
                     );
@@ -269,7 +288,80 @@ class _FarmersListPageState extends State<FarmersListPage> {
       ),
     );
   }
+
+  Future<void> _importFromExcel() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls', 'csv'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final bytes = File(file.path!).readAsBytesSync();
+      final farmers = <FarmerEntity>[];
+
+      if (file.extension == 'csv') {
+        final csvString = String.fromCharCodes(bytes);
+        final rows = const CsvToListConverter().convert(csvString);
+        if (rows.length > 1) {
+          for (var i = 1; i < rows.length; i++) {
+            final row = rows[i];
+            if (row.length >= 4) {
+              farmers.add(FarmerEntity(
+                id: generateFarmerId(),
+                fullName: row[0].toString(),
+                contactNumber: row[1].toString(),
+                village: row[2].toString(),
+                plotCount: 1,
+                areaPerPlot: 1.0,
+                assignedCropTypeId: row[3].toString().isNotEmpty ? row[3].toString() : 'default',
+              ));
+            }
+          }
+        }
+      } else {
+        final excel = excel_pkg.Excel.decodeBytes(bytes);
+        for (final table in excel.tables.keys) {
+          final rows = excel.tables[table]?.rows ?? [];
+          if (rows.length > 1) {
+            for (var i = 1; i < rows.length; i++) {
+              final row = rows[i];
+              if (row.length >= 4) {
+                farmers.add(FarmerEntity(
+                  id: generateFarmerId(),
+                  fullName: row[0]?.value?.toString() ?? 'Unknown',
+                  contactNumber: row[1]?.value?.toString() ?? '',
+                  village: row[2]?.value?.toString() ?? '',
+                  plotCount: 1,
+                  areaPerPlot: 1.0,
+                  assignedCropTypeId: row[3]?.value?.toString() ?? 'default',
+                ));
+              }
+            }
+          }
+        }
+      }
+
+      if (farmers.isNotEmpty && mounted) {
+        context.read<FarmerBloc>().add(FarmerCreateMultipleRequested(farmers));
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No valid farmers found in the file')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error parsing file: $e')),
+        );
+      }
+    }
+  }
 }
+
 
 class _FarmerCard extends StatelessWidget {
   const _FarmerCard({
@@ -359,6 +451,74 @@ class _FarmerCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (farmer.classification == FarmerClassification.blacklist)
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Unblock Farmer?'),
+                            content: Text('Are you sure you want to unblock ${farmer.fullName} and return them to regular status?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                                onPressed: () {
+                                  final bloc = context.read<FarmerBloc>();
+                                  Navigator.pop(ctx);
+                                  bloc.add(FarmerUpdateRequested(
+                                    farmer.copyWith(classification: FarmerClassification.regular)
+                                  ));
+                                },
+                                child: const Text('Unblock'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.check_circle, size: 20, color: Colors.green),
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Blacklist Farmer?'),
+                            content: Text('Are you sure you want to blacklist ${farmer.fullName}?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                onPressed: () {
+                                  final bloc = context.read<FarmerBloc>();
+                                  Navigator.pop(ctx);
+                                  bloc.add(FarmerUpdateRequested(
+                                    farmer.copyWith(classification: FarmerClassification.blacklist)
+                                  ));
+                                },
+                                child: const Text('Blacklist'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.block, size: 20, color: Colors.red),
+                      ),
+                    ),
                   GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();

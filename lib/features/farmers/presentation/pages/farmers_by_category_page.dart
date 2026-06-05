@@ -145,6 +145,7 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
         _selectedFarmerIds.remove(farmerId);
       } else {
         _selectedFarmerIds.add(farmerId);
+        _isSelectionMode = true;
       }
       if (_selectedFarmerIds.isEmpty) {
         _isSelectionMode = false;
@@ -516,13 +517,13 @@ class _FarmersByCategoryPageState extends State<FarmersByCategoryPage>
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Implement delete
+              for (final farmer in farmers) {
+                context.read<FarmerBloc>().add(FarmerDeleteRequested(farmer.id));
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Deleted ${farmers.length} farmers')),
               );
               _deselectAll();
-              context.read<FarmerBloc>().add(
-                  const FarmerLoadRequested()); // Reload to reflect changes
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
@@ -1208,6 +1209,11 @@ class _CategoryView extends StatelessWidget {
                     );
                   }
                 },
+                onLongPress: () {
+                  if (!isSelectionMode) {
+                    onToggleSelection(farmers[index].id);
+                  }
+                },
               );
             },
           ),
@@ -1224,6 +1230,7 @@ class _FarmerCard extends StatelessWidget {
     this.isSelected = false,
     this.isSelectionMode = false,
     required this.onTap,
+    this.onLongPress,
   });
 
   final FarmerEntity farmer;
@@ -1231,6 +1238,7 @@ class _FarmerCard extends StatelessWidget {
   final bool isSelected;
   final bool isSelectionMode;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1246,6 +1254,7 @@ class _FarmerCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -1312,6 +1321,104 @@ class _FarmerCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: color,
                       ),
+                    ),
+                  ),
+                  if (farmer.classification == FarmerClassification.blacklist)
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Unblock Farmer?'),
+                            content: Text('Are you sure you want to unblock ${farmer.fullName} and return them to regular status?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                                onPressed: () {
+                                  final bloc = context.read<FarmerBloc>();
+                                  Navigator.pop(ctx);
+                                  bloc.add(FarmerUpdateRequested(
+                                    farmer.copyWith(classification: FarmerClassification.regular)
+                                  ));
+                                },
+                                child: const Text('Unblock'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.check_circle, size: 20, color: Colors.green),
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Blacklist Farmer?'),
+                            content: Text('Are you sure you want to blacklist ${farmer.fullName}?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                onPressed: () {
+                                  final bloc = context.read<FarmerBloc>();
+                                  Navigator.pop(ctx);
+                                  bloc.add(FarmerUpdateRequested(
+                                    farmer.copyWith(classification: FarmerClassification.blacklist)
+                                  ));
+                                },
+                                child: const Text('Blacklist'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.block, size: 20, color: Colors.red),
+                      ),
+                    ),
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Delete Farmer?'),
+                          content: Text('Are you sure you want to delete ${farmer.fullName}? This action cannot be undone.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                context.read<FarmerBloc>().add(FarmerDeleteRequested(farmer.id));
+                              },
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.delete_outline, size: 20),
                     ),
                   ),
                 ],

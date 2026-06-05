@@ -25,10 +25,12 @@ class _ReportsPageState extends State<ReportsPage>
   String? _selectedCropType;
   DateTimeRange? _dateRange;
 
+  String _timeFilter = 'all';
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -44,10 +46,14 @@ class _ReportsPageState extends State<ReportsPage>
         title: const Text('Reports'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: const [
             Tab(text: 'General'),
+            Tab(text: 'Sleepy'),
             Tab(text: 'Blacklist'),
             Tab(text: 'Reminder'),
+            Tab(text: 'Seed Log'),
+            Tab(text: 'Yield Returns'),
           ],
         ),
       ),
@@ -67,8 +73,11 @@ class _ReportsPageState extends State<ReportsPage>
                 controller: _tabController,
                 children: [
                   _buildGeneralTab(farmers, distributions),
+                  _buildSleepyTab(farmers, distributions),
                   _buildBlacklistTab(farmers, distributions),
                   _buildReminderTab(farmers, distributions),
+                  _buildSeedLogTab(farmers, distributions),
+                  _buildYieldReturnTab(farmers, distributions),
                 ],
               );
             },
@@ -215,6 +224,49 @@ class _ReportsPageState extends State<ReportsPage>
     );
   }
 
+  Widget _buildSleepyTab(
+      List<FarmerEntity> farmers, List<DistributionEntity> distributions) {
+    final sleepyFarmers = farmers
+        .where((f) => f.classification == FarmerClassification.sleepy)
+        .toList();
+
+    if (sleepyFarmers.isEmpty) {
+      return const Center(child: Text('No sleepy farmers.'));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: sleepyFarmers.length,
+      itemBuilder: (context, index) {
+        final f = sleepyFarmers[index];
+        final fDistributions =
+            distributions.where((d) => d.farmerId == f.id).toList();
+        double outstanding = 0;
+        for (var d in fDistributions) {
+          outstanding += d.outstandingQuantity;
+        }
+
+        return Card(
+          color: Colors.orange.withOpacity(0.05),
+          child: ListTile(
+            leading: const Icon(Icons.snooze, color: Colors.orange),
+            title: Text(f.fullName,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text('Outstanding Yield: $outstanding'),
+                Text(
+                    'Last Contact: ${f.lastContactAt != null ? _dateFormat.format(f.lastContactAt!) : 'Never'}'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildBlacklistTab(
       List<FarmerEntity> farmers, List<DistributionEntity> distributions) {
     final blacklistFarmers = farmers
@@ -309,6 +361,115 @@ class _ReportsPageState extends State<ReportsPage>
     );
   }
 
+  Widget _buildTimeFilterPanel() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Theme.of(context).colorScheme.surface,
+      child: Row(
+        children: [
+          const Icon(Icons.access_time, size: 20),
+          const SizedBox(width: 8),
+          const Text('Time Filter:'),
+          const SizedBox(width: 16),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _timeFilter,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('All Time')),
+                DropdownMenuItem(value: 'day', child: Text('1 Day')),
+                DropdownMenuItem(value: 'week', child: Text('1 Week')),
+                DropdownMenuItem(value: 'month', child: Text('1 Month')),
+              ],
+              onChanged: (val) => setState(() => _timeFilter = val ?? 'all'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<DistributionEntity> _filterDistributionsByTime(List<DistributionEntity> distributions, {bool useUpdatedAt = false}) {
+    if (_timeFilter == 'all') return distributions;
+    final now = DateTime.now();
+    return distributions.where((d) {
+      final targetDate = useUpdatedAt ? (d.updatedAt ?? d.distributionDate) : d.distributionDate;
+      final diff = now.difference(targetDate).inDays;
+      if (_timeFilter == 'day') return diff <= 1;
+      if (_timeFilter == 'week') return diff <= 7;
+      if (_timeFilter == 'month') return diff <= 30;
+      return true;
+    }).toList();
+  }
+
+  Widget _buildSeedLogTab(List<FarmerEntity> farmers, List<DistributionEntity> distributions) {
+    final filtered = _filterDistributionsByTime(distributions, useUpdatedAt: false);
+    
+    return Column(
+      children: [
+        _buildTimeFilterPanel(),
+        const Divider(height: 1),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(child: Text('No seed log records found for this period.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final d = filtered[index];
+                    final farmer = farmers.firstWhere((f) => f.id == d.farmerId, orElse: () => FarmerEntity(id: d.farmerId, fullName: 'Unknown Farmer', contactNumber: '', village: '', plotCount: 0, areaPerPlot: 0.0, assignedCropTypeId: ''));
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.agriculture),
+                        title: Text('${farmer.fullName} - ${d.seedType}'),
+                        subtitle: Text('Qty: ${d.quantityDistributed} | Distributed: ${_dateFormat.format(d.distributionDate)}'),
+                        trailing: Text(d.status.name.toUpperCase()),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYieldReturnTab(List<FarmerEntity> farmers, List<DistributionEntity> distributions) {
+    // Show only distributions with some quantity returned
+    final returnedDists = distributions.where((d) => d.quantityReturned > 0).toList();
+    final filtered = _filterDistributionsByTime(returnedDists, useUpdatedAt: true);
+    
+    return Column(
+      children: [
+        _buildTimeFilterPanel(),
+        const Divider(height: 1),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(child: Text('No yield return records found for this period.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final d = filtered[index];
+                    final farmer = farmers.firstWhere((f) => f.id == d.farmerId, orElse: () => FarmerEntity(id: d.farmerId, fullName: 'Unknown Farmer', contactNumber: '', village: '', plotCount: 0, areaPerPlot: 0.0, assignedCropTypeId: ''));
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.download),
+                        title: Text('${farmer.fullName} - ${d.seedType}'),
+                        subtitle: Text('Returned: ${d.quantityReturned} | Last Updated: ${d.updatedAt != null ? _dateFormat.format(d.updatedAt!) : _dateFormat.format(d.distributionDate)}'),
+                        trailing: Text('OUTSTANDING: ${d.outstandingQuantity}'),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _handleExport(BuildContext context) async {
     final farmers = context.read<FarmerBloc>().state.farmers ?? [];
     final distributions =
@@ -358,6 +519,32 @@ class _ReportsPageState extends State<ReportsPage>
         ]);
       }
     } else if (currentIndex == 1) {
+      title = 'Sleepy Report';
+      data.add([
+        'Name',
+        'Contact',
+        'Village',
+        'Last Known Contact Date',
+        'Total Outstanding Yield',
+      ]);
+
+      final sleepyList = farmers
+          .where((f) => f.classification == FarmerClassification.sleepy);
+      for (var f in sleepyList) {
+        final fDist = distributions.where((d) => d.farmerId == f.id);
+        final outstanding =
+            fDist.fold(0.0, (sum, d) => sum + d.outstandingQuantity);
+        data.add([
+          f.fullName,
+          f.contactNumber,
+          f.village,
+          f.lastContactAt != null
+              ? _dateFormat.format(f.lastContactAt!)
+              : 'N/A',
+          outstanding.toStringAsFixed(2),
+        ]);
+      }
+    } else if (currentIndex == 2) {
       title = 'Blacklist Report';
       data.add([
         'Name',
@@ -383,7 +570,7 @@ class _ReportsPageState extends State<ReportsPage>
           outstanding.toStringAsFixed(2),
         ]);
       }
-    } else if (currentIndex == 2) {
+    } else if (currentIndex == 3) {
       title = 'Reminder Urgent Report';
       data.add([
         'Name',
@@ -405,8 +592,7 @@ class _ReportsPageState extends State<ReportsPage>
 
       for (var f in reminder) {
         final fDist = distributions.where((d) => d.farmerId == f.id);
-        final outstanding =
-            fDist.fold(0.0, (sum, d) => sum + d.outstandingQuantity);
+        final outstanding = fDist.fold(0.0, (sum, d) => sum + d.outstandingQuantity);
         data.add([
           f.fullName,
           f.contactNumber,
@@ -415,6 +601,51 @@ class _ReportsPageState extends State<ReportsPage>
               ? _dateFormat.format(f.lastContactAt!)
               : 'N/A',
           outstanding.toStringAsFixed(2),
+        ]);
+      }
+    } else if (currentIndex == 4) {
+      title = 'Seed Log Report (${_timeFilter.toUpperCase()})';
+      data.add([
+        'Distribution ID',
+        'Farmer Name',
+        'Seed Type',
+        'Distributed Qty',
+        'Distribution Date',
+        'Status',
+      ]);
+      final filtered = _filterDistributionsByTime(distributions, useUpdatedAt: false);
+      for (var d in filtered) {
+        final farmer = farmers.firstWhere((f) => f.id == d.farmerId, orElse: () => FarmerEntity(id: d.farmerId, fullName: 'Unknown Farmer', contactNumber: '', village: '', plotCount: 0, areaPerPlot: 0.0, assignedCropTypeId: ''));
+        data.add([
+          d.id,
+          farmer.fullName,
+          d.seedType,
+          d.quantityDistributed.toStringAsFixed(2),
+          _dateFormat.format(d.distributionDate),
+          d.status.name.toUpperCase(),
+        ]);
+      }
+    } else if (currentIndex == 5) {
+      title = 'Yield Returns Report (${_timeFilter.toUpperCase()})';
+      data.add([
+        'Distribution ID',
+        'Farmer Name',
+        'Seed Type',
+        'Returned Qty',
+        'Outstanding Qty',
+        'Last Update Date',
+      ]);
+      final returnedDists = distributions.where((d) => d.quantityReturned > 0).toList();
+      final filtered = _filterDistributionsByTime(returnedDists, useUpdatedAt: true);
+      for (var d in filtered) {
+        final farmer = farmers.firstWhere((f) => f.id == d.farmerId, orElse: () => FarmerEntity(id: d.farmerId, fullName: 'Unknown Farmer', contactNumber: '', village: '', plotCount: 0, areaPerPlot: 0.0, assignedCropTypeId: ''));
+        data.add([
+          d.id,
+          farmer.fullName,
+          d.seedType,
+          d.quantityReturned.toStringAsFixed(2),
+          d.outstandingQuantity.toStringAsFixed(2),
+          d.updatedAt != null ? _dateFormat.format(d.updatedAt!) : _dateFormat.format(d.distributionDate),
         ]);
       }
     }

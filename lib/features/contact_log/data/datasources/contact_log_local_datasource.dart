@@ -1,14 +1,13 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../shared/domain/entities/contact_log_entity.dart';
-import '../../../../core/data/database/app_database_impl.dart';
 
-/// Local data source for contact logs.
+/// Firestore data source for contact logs.
 class ContactLogLocalDataSource {
-  ContactLogLocalDataSource(this._database);
+  ContactLogLocalDataSource(this._firestore);
 
-  final AppDatabaseImpl _database;
+  final FirebaseFirestore _firestore;
 
-  static const String _tableName = 'contact_logs';
+  static const String _collectionName = 'contact_logs';
 
   ContactLogEntity _mapToEntity(Map<String, dynamic> map) {
     return ContactLogEntity(
@@ -19,7 +18,9 @@ class ContactLogLocalDataSource {
       contactMethod: map['contact_method'] as String,
       notes: map['notes'] as String,
       recordedByStaffId: map['recorded_by_staff_id'] as String,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+      createdAt: map['created_at'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
+          : DateTime.now(),
     );
   }
 
@@ -39,21 +40,19 @@ class ContactLogLocalDataSource {
   /// Get all contact logs for a specific farmer.
   Future<List<ContactLogEntity>> getContactLogsByFarmerId(
       String farmerId) async {
-    final db = _database.database;
-    final maps = await db.query(
-      _tableName,
-      where: 'farmer_id = ?',
-      whereArgs: [farmerId],
-      orderBy: 'contact_date DESC',
-    );
-    return maps.map(_mapToEntity).toList();
+    final snapshot = await _firestore
+        .collection(_collectionName)
+        .where('farmer_id', isEqualTo: farmerId)
+        .get();
+    final list = snapshot.docs.map((doc) => _mapToEntity(doc.data())).toList();
+    list.sort((a, b) => b.contactDate.compareTo(a.contactDate));
+    return list;
   }
 
   /// Insert a new contact log.
   Future<void> insertContactLog(ContactLogEntity entity) async {
-    final db = _database.database;
     final map = _entityToMap(entity);
     map['created_at'] = DateTime.now().millisecondsSinceEpoch;
-    await db.insert(_tableName, map, conflictAlgorithm: ConflictAlgorithm.fail);
+    await _firestore.collection(_collectionName).doc(entity.id).set(map);
   }
 }

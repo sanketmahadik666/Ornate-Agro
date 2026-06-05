@@ -38,9 +38,11 @@ class FarmerRepositoryImpl implements FarmerRepository {
       throw DuplicateFarmerException();
     }
 
-    // Set timestamps
+    final nextId = await _localDataSource.generateNextFarmerId();
+
+    // Set timestamps and generated ID
     final farmerWithTimestamps = FarmerEntity(
-      id: farmer.id,
+      id: nextId,
       fullName: farmer.fullName,
       contactNumber: farmer.contactNumber,
       village: farmer.village,

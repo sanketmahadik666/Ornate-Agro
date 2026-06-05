@@ -392,14 +392,13 @@ class _YieldTrackingPageState extends State<YieldTrackingPage>
                     onPressed: () {
                       if (!formKey.currentState!.validate()) return;
                       final val = double.parse(qtyController.text);
-                      context
-                          .read<DistributionBloc>()
-                          .add(DistributionYieldReturnRequested(
-                            id: distribution.id,
-                            quantityReturned: val,
-                            staffId: 'STAFF_001',
-                          ));
+                      final distBloc = context.read<DistributionBloc>();
                       Navigator.pop(ctx);
+                      distBloc.add(DistributionYieldReturnRequested(
+                        id: distribution.id,
+                        quantityReturned: val,
+                        staffId: 'STAFF_001',
+                      ));
                     },
                     child: const Text('Save Return'),
                   ),
@@ -446,14 +445,18 @@ class _YieldTrackingPageState extends State<YieldTrackingPage>
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () {
+              final distBloc = context.read<DistributionBloc>();
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(ctx);
-              context.read<DistributionBloc>().add(
-                    DistributionForceFullfillRequested(
-                      id: distribution.id,
-                      authorityId: 'AUTHORITY_001',
-                    ),
-                  );
-              ScaffoldMessenger.of(context).showSnackBar(
+              
+              distBloc.add(
+                DistributionForceFullfillRequested(
+                  id: distribution.id,
+                  authorityId: 'AUTHORITY_001',
+                ),
+              );
+              
+              messenger.showSnackBar(
                 SnackBar(
                     content: Text(
                         '$farmerName distribution force-fulfilled (Clinchit)')),
@@ -498,23 +501,27 @@ class _YieldTrackingPageState extends State<YieldTrackingPage>
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              Navigator.pop(ctx);
-              // Get farmers from the farmer bloc state
-              final farmerState = context.read<FarmerBloc>().state;
+              final farmerBloc = context.read<FarmerBloc>();
+              final messenger = ScaffoldMessenger.of(context);
+              
+              // Get farmers from the farmer bloc state before popping
+              final farmerState = farmerBloc.state;
               final farmers = farmerState.farmers ?? [];
-              final farmer =
-                  farmers.where((f) => f.id == distribution.farmerId);
+              final farmer = farmers.where((f) => f.id == distribution.farmerId);
+              
+              Navigator.pop(ctx);
+              
               if (farmer.isNotEmpty) {
-                context.read<FarmerBloc>().add(
-                      FarmerUpdateRequested(
-                        farmer.first.copyWith(
-                          classification: FarmerClassification.blacklist,
-                          updatedAt: DateTime.now(),
-                        ),
-                      ),
-                    );
+                farmerBloc.add(
+                  FarmerUpdateRequested(
+                    farmer.first.copyWith(
+                      classification: FarmerClassification.blacklist,
+                      updatedAt: DateTime.now(),
+                    ),
+                  ),
+                );
               }
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(content: Text('$farmerName moved to Blacklist')),
               );
             },

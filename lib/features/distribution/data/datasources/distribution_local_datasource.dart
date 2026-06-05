@@ -1,14 +1,13 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../shared/domain/entities/distribution_entity.dart';
-import '../../../../core/data/database/app_database_impl.dart';
 
-/// Local data source for distributions (SQLite).
+/// Firestore data source for distributions.
 class DistributionLocalDataSource {
-  DistributionLocalDataSource(this._database);
+  DistributionLocalDataSource(this._firestore);
 
-  final AppDatabaseImpl _database;
+  final FirebaseFirestore _firestore;
 
-  static const String _tableName = 'distributions';
+  static const String _collectionName = 'distributions';
 
   /// Convert a DB map row to [DistributionEntity].
   DistributionEntity _mapToEntity(Map<String, dynamic> map) {
@@ -33,7 +32,9 @@ class DistributionLocalDataSource {
           : null,
       amendmentReason: map['amendment_reason'] as String?,
       amendedByAuthorityId: map['amended_by_authority_id'] as String?,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+      createdAt: map['created_at'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
+          : DateTime.now(),
       updatedAt: map['updated_at'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int)
           : null,
@@ -64,56 +65,43 @@ class DistributionLocalDataSource {
 
   /// Get all distributions ordered by date descending.
   Future<List<DistributionEntity>> getAllDistributions() async {
-    final db = _database.database;
-    final maps = await db.query(_tableName, orderBy: 'distribution_date DESC');
-    return maps.map(_mapToEntity).toList();
+    final snapshot = await _firestore.collection(_collectionName).get();
+    final list = snapshot.docs.map((doc) => _mapToEntity(doc.data())).toList();
+    list.sort((a, b) => b.distributionDate.compareTo(a.distributionDate));
+    return list;
   }
 
   /// Get a distribution by ID.
   Future<DistributionEntity?> getDistributionById(String id) async {
-    final db = _database.database;
-    final maps = await db.query(
-      _tableName,
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    if (maps.isEmpty) return null;
-    return _mapToEntity(maps.first);
+    final doc = await _firestore.collection(_collectionName).doc(id).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return _mapToEntity(doc.data()!);
   }
 
   /// Get all distributions for a specific farmer.
   Future<List<DistributionEntity>> getDistributionsByFarmer(
       String farmerId) async {
-    final db = _database.database;
-    final maps = await db.query(
-      _tableName,
-      where: 'farmer_id = ?',
-      whereArgs: [farmerId],
-      orderBy: 'distribution_date DESC',
-    );
-    return maps.map(_mapToEntity).toList();
+    final snapshot = await _firestore
+        .collection(_collectionName)
+        .where('farmer_id', isEqualTo: farmerId)
+        .get();
+    final list = snapshot.docs.map((doc) => _mapToEntity(doc.data())).toList();
+    list.sort((a, b) => b.distributionDate.compareTo(a.distributionDate));
+    return list;
   }
 
   /// Insert a new distribution record.
   Future<void> insertDistribution(DistributionEntity entity) async {
-    final db = _database.database;
     final map = _entityToMap(entity);
     map['created_at'] = DateTime.now().millisecondsSinceEpoch;
-    await db.insert(_tableName, map, conflictAlgorithm: ConflictAlgorithm.fail);
+    await _firestore.collection(_collectionName).doc(entity.id).set(map);
   }
 
   /// Update an existing distribution (amendment only, no delete).
   Future<void> updateDistribution(DistributionEntity entity) async {
-    final db = _database.database;
     final map = _entityToMap(entity);
     map['updated_at'] = DateTime.now().millisecondsSinceEpoch;
-    await db.update(
-      _tableName,
-      map,
-      where: 'id = ?',
-      whereArgs: [entity.id],
-    );
+    await _firestore.collection(_collectionName).doc(entity.id).update(map);
   }
 
   /// Get distributions matching filters.
@@ -124,37 +112,25 @@ class DistributionLocalDataSource {
     String? farmerId,
     DistributionStatus? status,
   }) async {
-    final db = _database.database;
-    final whereClauses = <String>[];
-    final whereArgs = <dynamic>[];
+    final all = await getAllDistributions();
 
-    if (startDate != null) {
-      whereClauses.add('distribution_date >= ?');
-      whereArgs.add(startDate.millisecondsSinceEpoch);
-    }
-    if (endDate != null) {
-      whereClauses.add('distribution_date <= ?');
-      whereArgs.add(endDate.millisecondsSinceEpoch);
-    }
-    if (seedType != null && seedType.isNotEmpty) {
-      whereClauses.add('seed_type = ?');
-      whereArgs.add(seedType);
-    }
-    if (farmerId != null && farmerId.isNotEmpty) {
-      whereClauses.add('farmer_id = ?');
-      whereArgs.add(farmerId);
-    }
-    if (status != null) {
-      whereClauses.add('status = ?');
-      whereArgs.add(status.name);
-    }
-
-    final maps = await db.query(
-      _tableName,
-      where: whereClauses.isEmpty ? null : whereClauses.join(' AND '),
-      whereArgs: whereArgs.isEmpty ? null : whereArgs,
-      orderBy: 'distribution_date DESC',
-    );
-    return maps.map(_mapToEntity).toList();
+    return all.where((d) {
+      if (startDate != null && d.distributionDate.isBefore(startDate)) {
+        return false;
+      }
+      if (endDate != null && d.distributionDate.isAfter(endDate)) {
+        return false;
+      }
+      if (seedType != null && seedType.isNotEmpty && d.seedType != seedType) {
+        return false;
+      }
+      if (farmerId != null && farmerId.isNotEmpty && d.farmerId != farmerId) {
+        return false;
+      }
+      if (status != null && d.status != status) {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 }

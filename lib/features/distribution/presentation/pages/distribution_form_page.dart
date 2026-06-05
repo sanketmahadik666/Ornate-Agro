@@ -50,11 +50,37 @@ class _DistributionFormPageState extends State<DistributionFormPage> {
     }
   }
 
+  void _showFarmerSearchDialog(List<FarmerEntity> allFarmers) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) {
+        return _FarmerSearchModal(
+          farmers: allFarmers,
+          onSelected: (farmer) {
+            setState(() => _selectedFarmer = farmer);
+            Navigator.pop(context);
+          },
+        );
+      },
+    );
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedFarmer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a farmer')),
+      );
+      return;
+    }
+    if (_selectedFarmer!.classification == FarmerClassification.blacklist) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot distribute seeds to blacklisted farmers'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -105,26 +131,94 @@ class _DistributionFormPageState extends State<DistributionFormPage> {
                       Text('Farmer',
                           style: Theme.of(context).textTheme.titleSmall),
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<FarmerEntity>(
-                        value: _selectedFarmer,
-                        hint: const Text('Select a farmer'),
-                        isExpanded: true,
-                        items: farmers
-                            .map((f) => DropdownMenuItem(
-                                  value: f,
-                                  child: Text('${f.fullName} (${f.village})'),
-                                ))
-                            .toList(),
-                        onChanged: (farmer) =>
-                            setState(() => _selectedFarmer = farmer),
-                        validator: (value) =>
-                            value == null ? 'Farmer is required' : null,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.person),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                      InkWell(
+                        onTap: () => _showFarmerSearchDialog(farmers),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: _selectedFarmer == null 
+                                  ? Theme.of(context).colorScheme.outline
+                                  : Theme.of(context).colorScheme.primary,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person, 
+                                color: _selectedFarmer == null ? Colors.grey : Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _selectedFarmer == null 
+                                      ? 'Tap to search and select farmer...'
+                                      : '${_selectedFarmer!.fullName} - ${_selectedFarmer!.contactNumber}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: _selectedFarmer == null ? Colors.grey.shade600 : null,
+                                  ),
+                                ),
+                              ),
+                              const Icon(Icons.search, color: Colors.grey),
+                            ],
+                          ),
                         ),
                       ),
+                      // Hidden field just for validation purposes
+                      FormField<FarmerEntity>(
+                        validator: (value) => _selectedFarmer == null ? 'Farmer is required' : null,
+                        builder: (state) {
+                          if (state.hasError) {
+                            return Padding(
+                              padding: const EdgeInsets.only(left: 12, top: 8),
+                              child: Text(
+                                state.errorText!,
+                                style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                      
+                      if (_selectedFarmer != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _selectedFarmer!.classification == FarmerClassification.blacklist 
+                                    ? Icons.block 
+                                    : Icons.info_outline,
+                                color: _selectedFarmer!.classification == FarmerClassification.blacklist 
+                                    ? Colors.red 
+                                    : Theme.of(context).colorScheme.primary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Category: ${_selectedFarmer!.classification.name.toUpperCase()}',
+                                style: TextStyle(
+                                  color: _selectedFarmer!.classification == FarmerClassification.blacklist 
+                                      ? Colors.red 
+                                      : Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (_selectedFarmer!.classification == FarmerClassification.blacklist)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 8.0),
+                                  child: Text(
+                                    '(Seed distribution blocked)',
+                                    style: TextStyle(color: Colors.red, fontSize: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
 
                       const SizedBox(height: 20),
 
@@ -273,7 +367,7 @@ class _DistributionFormPageState extends State<DistributionFormPage> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: _submit,
+                          onPressed: _selectedFarmer?.classification == FarmerClassification.blacklist ? null : _submit,
                           icon: const Icon(Icons.save),
                           label: const Text('Record Distribution'),
                           style: FilledButton.styleFrom(
@@ -289,6 +383,107 @@ class _DistributionFormPageState extends State<DistributionFormPage> {
           },
         );
       },
+    );
+  }
+}
+
+class _FarmerSearchModal extends StatefulWidget {
+  const _FarmerSearchModal({required this.farmers, required this.onSelected});
+  final List<FarmerEntity> farmers;
+  final ValueChanged<FarmerEntity> onSelected;
+
+  @override
+  State<_FarmerSearchModal> createState() => _FarmerSearchModalState();
+}
+
+class _FarmerSearchModalState extends State<_FarmerSearchModal> {
+  String _searchQuery = '';
+  late List<FarmerEntity> _filteredFarmers;
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredFarmers = widget.farmers;
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+      if (_searchQuery.isEmpty) {
+        _filteredFarmers = widget.farmers;
+      } else {
+        _filteredFarmers = widget.farmers.where((f) {
+          return f.fullName.toLowerCase().contains(_searchQuery) ||
+              f.contactNumber.contains(_searchQuery) ||
+              f.id.toLowerCase().contains(_searchQuery);
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Search by name, mobile, or ID...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                    ),
+                    onChanged: _onSearchChanged,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _filteredFarmers.isEmpty
+                  ? const Center(child: Text('No farmers found matching your search.'))
+                  : ListView.builder(
+                      itemCount: _filteredFarmers.length,
+                      itemBuilder: (context, index) {
+                        final farmer = _filteredFarmers[index];
+                        final isBlacklisted = farmer.classification == FarmerClassification.blacklist;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isBlacklisted ? Colors.red.shade100 : Colors.green.shade100,
+                            child: Icon(Icons.person, color: isBlacklisted ? Colors.red : Colors.green),
+                          ),
+                          title: Text(farmer.fullName),
+                          subtitle: Text('${farmer.contactNumber} • ${farmer.id}'),
+                          trailing: isBlacklisted 
+                              ? const Text('BLACKLISTED', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold))
+                              : const Icon(Icons.chevron_right),
+                          onTap: () {
+                            widget.onSelected(farmer);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

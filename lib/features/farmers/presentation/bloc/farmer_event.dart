@@ -65,3 +65,11 @@ final class FarmerFilterByVillageRequested extends FarmerEvent {
   @override
   List<Object?> get props => [village];
 }
+
+final class FarmerCreateMultipleRequested extends FarmerEvent {
+  const FarmerCreateMultipleRequested(this.farmers);
+  final List<FarmerEntity> farmers;
+  
+  @override
+  List<Object?> get props => [farmers];
+}

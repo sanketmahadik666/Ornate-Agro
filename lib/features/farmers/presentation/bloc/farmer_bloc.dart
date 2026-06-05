@@ -16,6 +16,7 @@ class FarmerBloc extends Bloc<FarmerEvent, FarmerState> {
     on<FarmerLoadByIdRequested>(_onLoadByIdRequested);
     on<FarmerFilterByClassificationRequested>(_onFilterByClassification);
     on<FarmerFilterByVillageRequested>(_onFilterByVillage);
+    on<FarmerCreateMultipleRequested>(_onCreateMultipleRequested);
     
     // Load farmers on initialization
     add(const FarmerLoadRequested());
@@ -120,5 +121,32 @@ class FarmerBloc extends Bloc<FarmerEvent, FarmerState> {
     } catch (e) {
       emit(FarmerState.failure('Failed to filter farmers: ${e.toString()}'));
     }
+  }
+
+  void _onCreateMultipleRequested(FarmerCreateMultipleRequested event, Emitter<FarmerState> emit) async {
+    emit(const FarmerState.loading());
+    int successCount = 0;
+    int duplicateCount = 0;
+    int errorCount = 0;
+
+    for (final farmer in event.farmers) {
+      try {
+        await _farmerRepository.createFarmer(farmer);
+        successCount++;
+      } on DuplicateFarmerException {
+        duplicateCount++;
+      } catch (e) {
+        errorCount++;
+      }
+    }
+
+    add(const FarmerLoadRequested());
+    final msgParts = <String>[];
+    if (successCount > 0) msgParts.add('Imported $successCount');
+    if (duplicateCount > 0) msgParts.add('Skipped $duplicateCount duplicates');
+    if (errorCount > 0) msgParts.add('Failed $errorCount');
+    
+    final message = msgParts.isEmpty ? 'No farmers imported' : msgParts.join(', ');
+    emit(FarmerState.success(message));
   }
 }

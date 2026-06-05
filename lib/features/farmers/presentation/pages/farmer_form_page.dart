@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:excel/excel.dart' as excel_pkg;
+import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -96,6 +100,15 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
       body: BlocListener<FarmerBloc, FarmerState>(
         listener: (context, state) {
           if (state.status == FarmerStatus.success) {
+            if (state.successMessage != null && mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(
+                   content: Text(state.successMessage!),
+                   backgroundColor: Colors.green,
+                   behavior: SnackBarBehavior.floating,
+                 ),
+               );
+            }
             Navigator.pop(context);
           } else if (state.status == FarmerStatus.failure) {
             setState(() => _isLoading = false);
@@ -331,11 +344,127 @@ class _FarmerFormPageState extends State<FarmerFormPage> {
                           ? 'Create Farmer'
                           : 'Update Farmer'),
                 ),
+                if (widget.farmer == null) ...[
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('OR', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _importFromExcel,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Import Multiple via Excel/CSV'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _importFromExcel() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls', 'csv'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      setState(() => _isLoading = true);
+      
+      final file = result.files.first;
+      final bytes = File(file.path!).readAsBytesSync();
+      final farmers = <FarmerEntity>[];
+
+      if (file.extension == 'csv') {
+        final csvString = String.fromCharCodes(bytes);
+        final rows = const CsvToListConverter().convert(csvString);
+        
+        String cleanString(dynamic val) {
+          if (val == null) return '';
+          String s = val.toString().trim();
+          if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
+          return s;
+        }
+
+        if (rows.length > 1) {
+          for (var i = 1; i < rows.length; i++) {
+            final row = rows[i];
+            if (row.length >= 3) {
+              final assignedCrop = row.length > 3 ? cleanString(row[3]) : '';
+              farmers.add(FarmerEntity(
+                id: generateFarmerId(),
+                fullName: cleanString(row[0]),
+                contactNumber: cleanString(row[1]),
+                village: cleanString(row[2]),
+                plotCount: 1,
+                areaPerPlot: 1.0,
+                assignedCropTypeId: assignedCrop.isNotEmpty ? assignedCrop : 'default',
+              ));
+            }
+          }
+        }
+      } else {
+        final excel = excel_pkg.Excel.decodeBytes(bytes);
+        
+        String cleanString(dynamic val) {
+          if (val == null) return '';
+          String s = val.toString().trim();
+          if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
+          return s;
+        }
+
+        for (final table in excel.tables.keys) {
+          final rows = excel.tables[table]?.rows ?? [];
+          if (rows.length > 1) {
+            for (var i = 1; i < rows.length; i++) {
+              final row = rows[i];
+              if (row.length >= 3) {
+                final assignedCrop = row.length > 3 ? cleanString(row[3]?.value) : '';
+                farmers.add(FarmerEntity(
+                  id: generateFarmerId(),
+                  fullName: cleanString(row[0]?.value),
+                  contactNumber: cleanString(row[1]?.value),
+                  village: cleanString(row[2]?.value),
+                  plotCount: 1,
+                  areaPerPlot: 1.0,
+                  assignedCropTypeId: assignedCrop.isNotEmpty ? assignedCrop : 'default',
+                ));
+              }
+            }
+          }
+        }
+      }
+
+      if (farmers.isNotEmpty && mounted) {
+        context.read<FarmerBloc>().add(FarmerCreateMultipleRequested(farmers));
+      } else if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No valid farmers found in the file')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error parsing file: $e')),
+        );
+      }
+    }
   }
 }
